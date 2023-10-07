@@ -1,0 +1,19 @@
+{
+  "name": "@arbendium/eslint-config-base",
+  "version": "0.0.1",
+  "description": "ESLint base config based on Airbnb's base config",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "scripts": {
+    "lint": "eslint index.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "eslint-config-airbnb-base": "^15.0.0"
+  },
+  "peerDependencies": {
+    "eslint": "^8.51.0"
+  }
+}
