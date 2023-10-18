@@ -1,4 +1,5 @@
 import airbnbBase from 'eslint-config-airbnb-base';
+import globals from 'globals';
 
 const configurations = await Promise.all(airbnbBase.extends.map(async moduleName => {
 	const { default: { ...configuration } } = await import(moduleName);
@@ -21,6 +22,7 @@ export default [
 	...configurations,
 	{
 		languageOptions: {
+			globals: globals.node,
 			parserOptions: {
 				ecmaVersion: 2022,
 				sourceType: 'module'
