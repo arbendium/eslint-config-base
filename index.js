@@ -41,6 +41,7 @@ export default [
 			'import/default': 'error',
 			'import/extensions': ['error', 'ignorePackages'],
 			'import/no-commonjs': 'error',
+			'import/no-extraneous-dependencies': 'error',
 			indent: ['error', 'tab'],
 			'max-classes-per-file': 'off',
 			'newline-before-return': 'error',
