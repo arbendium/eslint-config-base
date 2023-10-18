@@ -10,7 +10,7 @@ const configurations = await Promise.all(airbnbBase.extends.map(async moduleName
 	if (configuration.plugins) {
 		configuration.plugins = Object.fromEntries(
 			await Promise.all(configuration.plugins.map(
-				async plugin => [plugin, await import(`eslint-plugin-${plugin}`)]
+				async plugin => [plugin, (await import(`eslint-plugin-${plugin}`)).default]
 			))
 		);
 	}
