@@ -4,7 +4,10 @@
   "description": "ESLint base config based on Airbnb's base config",
   "repository": "github:arbendium/eslint-config-base",
   "type": "module",
-  "files": ["index.js"],
+  "files": [
+    "index.js",
+    "plugin-import"
+  ],
   "exports": "./index.js",
   "scripts": {
     "lint": "eslint index.js eslint.config.js"
@@ -12,6 +15,7 @@
   "license": "ISC",
   "dependencies": {
     "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "file:plugin-import",
     "globals": "^13.23.0"
   },
   "peerDependencies": {
