@@ -56,7 +56,8 @@ export default [
 			'no-restricted-syntax': 'off',
 			'no-shadow': 'off',
 			'no-tabs': ['error', { allowIndentationTabs: true }],
-			'no-use-before-define': ['error', { functions: false, classes: false, variables: false }]
+			'no-use-before-define': ['error', { functions: false, classes: false, variables: false }],
+			'object-shorthand': ['error', 'always']
 		}
 	}
 ];
