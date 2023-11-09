@@ -14,9 +14,15 @@
   },
   "license": "ISC",
   "dependencies": {
+    "doctrine": "^3.0.0",
     "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-plugin-import": "file:plugin-import",
-    "globals": "^13.23.0"
+    "eslint-module-utils": "^2.8.0",
+    "globals": "^13.23.0",
+    "is-core-module": "^2.13.1",
+    "is-glob": "^4.0.3",
+    "minimatch": "^3.1.2",
+    "semver": "^6.3.1",
+    "tsconfig-paths": "^4.2.0"
   },
   "peerDependencies": {
     "eslint": "^8.51.0"
