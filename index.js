@@ -37,6 +37,7 @@ export default [
 			reportUnusedDisableDirectives: true
 		},
 		rules: {
+			'array-callback-return': 'off',
 			'arrow-parens': ['error', 'as-needed'],
 			'comma-dangle': ['error', 'never'],
 			'consistent-return': 'off',
