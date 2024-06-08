@@ -3,7 +3,7 @@ import path from 'path';
 import resolve from '../core/resolve.js';
 import moduleVisitor from '../core/moduleVisitor.js';
 import isGlob from 'is-glob';
-import minimatch from 'minimatch';
+import { minimatch } from 'minimatch';
 import docsUrl from '../docsUrl.js';
 import importType from '../core/importType.js';
 
@@ -13,6 +13,15 @@ const containsPath = (filepath, target) => {
   const relative = path.relative(target, filepath);
   return relative === '' || !relative.startsWith('..');
 };
+
+function isMatchingTargetPath(filename, targetPath) {
+  if (isGlob(targetPath)) {
+    const mm = new Minimatch(targetPath);
+    return mm.match(filename);
+  }
+
+  return containsPath(filename, targetPath);
+}
 
 export default {
   meta: {
@@ -84,15 +93,6 @@ export default {
         .map((target) => path.resolve(basePath, target))
         .some((targetPath) => isMatchingTargetPath(currentFilename, targetPath)),
     );
-
-    function isMatchingTargetPath(filename, targetPath) {
-      if (isGlob(targetPath)) {
-        const mm = new Minimatch(targetPath);
-        return mm.match(filename);
-      }
-
-      return containsPath(filename, targetPath);
-    }
 
     function isValidExceptionPath(absoluteFromPath, absoluteExceptionPath) {
       const relativeExceptionPath = path.relative(absoluteFromPath, absoluteExceptionPath);

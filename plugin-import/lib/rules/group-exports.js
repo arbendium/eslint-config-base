@@ -20,7 +20,7 @@ const errors = {
  *
  * Example:
  *
- * `export default {}` => ['module', 'exports']
+ * `module.exports = {}` => ['module', 'exports']
  * `module.exports.property = true` => ['module', 'exports', 'property']
  *
  * @param     {Node}    node    AST Node (MemberExpression)

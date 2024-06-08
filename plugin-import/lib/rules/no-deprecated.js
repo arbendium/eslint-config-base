@@ -1,5 +1,6 @@
 import declaredScope from '../core/declaredScope.js';
-import Exports from '../ExportMap.js';
+import ExportMapBuilder from '../exportMap/builder.js';
+import ExportMap from '../exportMap/index.js';
 import docsUrl from '../docsUrl.js';
 
 function message(deprecation) {
@@ -31,7 +32,7 @@ export default {
       if (node.type !== 'ImportDeclaration') { return; }
       if (node.source == null) { return; } // local export, ignore
 
-      const imports = Exports.get(node.source.value, context);
+      const imports = ExportMapBuilder.get(node.source.value, context);
       if (imports == null) { return; }
 
       const moduleDeprecation = imports.doc && imports.doc.tags.find((t) => t.title === 'deprecated');
@@ -114,7 +115,7 @@ export default {
         let namespace = namespaces.get(dereference.object.name);
         const namepath = [dereference.object.name];
         // while property is namespace and parent is member expression, keep validating
-        while (namespace instanceof Exports && dereference.type === 'MemberExpression') {
+        while (namespace instanceof ExportMap && dereference.type === 'MemberExpression') {
           // ignore computed parts for now
           if (dereference.computed) { return; }
 

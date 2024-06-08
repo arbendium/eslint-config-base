@@ -1,6 +1,6 @@
 The [upstream](https://github.com/import-js/eslint-plugin-import) doesn't support ESLint flat configuration system too well.
 
-**Upstream commit:** 6d34c88a91a9cb7556700b7cb83c8a27731ff302
+**Upstream commit:** 6554bd5c30976290024cecc44ef1e96746cf3cf7
 
 References:
  - https://github.com/import-js/eslint-plugin-import/issues/2556

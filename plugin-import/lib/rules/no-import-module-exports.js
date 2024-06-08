@@ -1,6 +1,6 @@
-import minimatch from 'minimatch';
+import { minimatch } from 'minimatch';
 import path from 'path';
-import pkgUp from '../core//pkgUp.js';
+import pkgUp from '../core/pkgUp.js';
 
 function getEntryPoint(context) {
   const pkgPath = pkgUp({ cwd: context.getPhysicalFilename ? context.getPhysicalFilename() : context.getFilename() });

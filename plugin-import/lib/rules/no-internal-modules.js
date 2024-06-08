@@ -1,4 +1,4 @@
-import minimatch from 'minimatch';
+import { minimatch } from 'minimatch';
 
 import resolve from '../core/resolve.js';
 import importType from '../core/importType.js';

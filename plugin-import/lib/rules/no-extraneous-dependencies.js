@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import pkgUp from '../core/pkgUp.js';
-import minimatch from 'minimatch';
+import { minimatch } from 'minimatch';
 import resolve from '../core/resolve.js';
 import moduleVisitor from '../core/moduleVisitor.js';
 import importType from '../core/importType.js';
@@ -177,6 +177,7 @@ function reportIfMissing(context, deps, depsOptions, node, name) {
     && (
       node.importKind === 'type'
       || node.importKind === 'typeof'
+      || node.exportKind === 'type'
       || Array.isArray(node.specifiers) && node.specifiers.length && node.specifiers.every((specifier) => specifier.importKind === 'type' || specifier.importKind === 'typeof')
     )
   ) {

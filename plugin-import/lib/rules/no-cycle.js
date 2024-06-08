@@ -4,12 +4,16 @@
  */
 
 import resolve from '../core/resolve.js';
-import Exports from '../ExportMap.js';
+import ExportMapBuilder from '../exportMap/builder.js';
 import { isExternalModule } from '../core/importType.js';
 import moduleVisitor, { makeOptionsSchema } from '../core/moduleVisitor.js';
 import docsUrl from '../docsUrl.js';
 
 const traversed = new Set();
+
+function routeString(route) {
+  return route.map((s) => `${s.value}:${s.loc.start.line}`).join('=>');
+}
 
 export default {
   meta: {
@@ -84,7 +88,7 @@ export default {
         return; // ignore type imports
       }
 
-      const imported = Exports.get(sourceNode.value, context);
+      const imported = ExportMapBuilder.get(sourceNode.value, context);
 
       if (imported == null) {
         return;  // no-unresolved territory
@@ -151,7 +155,3 @@ export default {
     });
   },
 };
-
-function routeString(route) {
-  return route.map((s) => `${s.value}:${s.loc.start.line}`).join('=>');
-}

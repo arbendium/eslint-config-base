@@ -11,7 +11,8 @@ import visit from '../core/visit.js';
 import { dirname, join } from 'path';
 import readPkgUp from '../core/readPkgUp.js';
 
-import Exports, { recursivePatternCapture } from '../ExportMap.js';
+import ExportMapBuilder from '../exportMap/builder.js';
+import recursivePatternCapture from '../exportMap/patternCapture.js';
 import docsUrl from '../docsUrl.js';
 
 const require = module.createRequire(import.meta.url);
@@ -74,6 +75,7 @@ const FUNCTION_DECLARATION = 'FunctionDeclaration';
 const CLASS_DECLARATION = 'ClassDeclaration';
 const IDENTIFIER = 'Identifier';
 const OBJECT_PATTERN = 'ObjectPattern';
+const ARRAY_PATTERN = 'ArrayPattern';
 const TS_INTERFACE_DECLARATION = 'TSInterfaceDeclaration';
 const TS_TYPE_ALIAS_DECLARATION = 'TSTypeAliasDeclaration';
 const TS_ENUM_DECLARATION = 'TSEnumDeclaration';
@@ -96,6 +98,10 @@ function forEachDeclarationIdentifier(declaration, cb) {
             if (pattern.type === IDENTIFIER) {
               cb(pattern.name);
             }
+          });
+        } else if (id.type === ARRAY_PATTERN) {
+          id.elements.forEach(({ name }) => {
+            cb(name);
           });
         } else {
           cb(id.name);
@@ -189,7 +195,7 @@ const prepareImportsAndExports = (srcFiles, context) => {
   srcFiles.forEach((file) => {
     const exports = new Map();
     const imports = new Map();
-    const currentExports = Exports.get(file, context);
+    const currentExports = ExportMapBuilder.get(file, context);
     if (currentExports) {
       const {
         dependencies,

@@ -1,4 +1,4 @@
-import Exports from '../ExportMap.js';
+import ExportMapBuilder from '../exportMap/builder.js';
 import docsUrl from '../docsUrl.js';
 
 export default {
@@ -19,7 +19,7 @@ export default {
       );
 
       if (!defaultSpecifier) { return; }
-      const imports = Exports.get(node.source.value, context);
+      const imports = ExportMapBuilder.get(node.source.value, context);
       if (imports == null) { return; }
 
       if (imports.errors.length) {
