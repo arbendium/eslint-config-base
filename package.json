@@ -17,7 +17,7 @@
     "doctrine": "^3.0.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-module-utils": "^2.8.1",
-    "globals": "^13.23.0",
+    "globals": "^15.4.0",
     "is-core-module": "^2.13.1",
     "is-glob": "^4.0.3",
     "minimatch": "^9.0.4",
@@ -25,6 +25,6 @@
     "tsconfig-paths": "^4.2.0"
   },
   "peerDependencies": {
-    "eslint": "^8.51.0"
+    "eslint": "^8.56.0"
   }
 }
