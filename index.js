@@ -71,7 +71,8 @@ export default [
 				{ blankLine: 'never', prev: 'import', next: 'import' },
 				{ blankLine: 'always', prev: 'block-like', next: '*' },
 				{ blankLine: 'always', prev: '*', next: 'block-like' }
-			]
+			],
+			quotes: ['error', 'single', { avoidEscape: false }]
 		}
 	}
 ];
