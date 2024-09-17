@@ -67,7 +67,9 @@ export default [
 			'padding-line-between-statements': [
 				'error',
 				{ blankLine: 'always', prev: '*', next: 'return' },
-				{ blankLine: 'always', prev: '*', next: 'throw' }
+				{ blankLine: 'always', prev: '*', next: 'throw' },
+				{ blankLine: 'always', prev: 'block-like', next: '*' },
+				{ blankLine: 'always', prev: '*', next: 'block-like' }
 			]
 		}
 	}
