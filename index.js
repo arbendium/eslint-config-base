@@ -68,6 +68,7 @@ export default [
 				'error',
 				{ blankLine: 'always', prev: '*', next: 'return' },
 				{ blankLine: 'always', prev: '*', next: 'throw' },
+				{ blankLine: 'never', prev: 'import', next: 'import' },
 				{ blankLine: 'always', prev: 'block-like', next: '*' },
 				{ blankLine: 'always', prev: '*', next: 'block-like' }
 			]
