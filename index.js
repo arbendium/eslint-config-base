@@ -41,6 +41,7 @@ export default [
 			'arrow-parens': ['error', 'as-needed'],
 			'comma-dangle': ['error', 'never'],
 			'consistent-return': 'off',
+			curly: ['error', 'all'],
 			'default-case': 'off',
 			'func-names': 'off',
 			'guard-for-in': 'off',
