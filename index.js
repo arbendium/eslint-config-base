@@ -51,7 +51,6 @@ export default [
 			'import/no-extraneous-dependencies': 'error',
 			indent: ['error', 'tab'],
 			'max-classes-per-file': 'off',
-			'newline-before-return': 'error',
 			'no-await-in-loop': 'off',
 			'no-confusing-arrow': 'off',
 			'no-continue': 'off',
@@ -64,7 +63,12 @@ export default [
 			'no-shadow': 'off',
 			'no-tabs': ['error', { allowIndentationTabs: true }],
 			'no-use-before-define': ['error', { functions: false, classes: false, variables: false }],
-			'object-shorthand': ['error', 'always']
+			'object-shorthand': ['error', 'always'],
+			'padding-line-between-statements': [
+				'error',
+				{ blankLine: 'always', prev: '*', next: 'return' },
+				{ blankLine: 'always', prev: '*', next: 'throw' }
+			]
 		}
 	}
 ];
