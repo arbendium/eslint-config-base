@@ -16,15 +16,15 @@
   "dependencies": {
     "doctrine": "^3.0.0",
     "eslint-import-resolver-node": "^0.3.9",
-    "eslint-module-utils": "^2.8.1",
-    "globals": "^15.4.0",
-    "is-core-module": "^2.13.1",
+    "eslint-module-utils": "^2.11.1",
+    "globals": "^15.9.0",
+    "is-core-module": "^2.15.1",
     "is-glob": "^4.0.3",
-    "minimatch": "^9.0.4",
-    "semver": "^7.6.2",
+    "minimatch": "^10.0.1",
+    "semver": "^7.6.3",
     "tsconfig-paths": "^4.2.0"
   },
   "peerDependencies": {
-    "eslint": "^8.56.0"
+    "eslint": "^8.57.0"
   }
 }
