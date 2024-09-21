@@ -1,69 +1,302 @@
-import airbnbBase from 'eslint-config-airbnb-base';
 import globals from 'globals';
-
-const configurations = await Promise.all(airbnbBase.extends.map(async moduleName => {
-	const { default: { ...configuration } } = await import(moduleName);
-
-	delete configuration.parserOptions;
-	delete configuration.env;
-
-	if (configuration.plugins) {
-		configuration.plugins = Object.fromEntries(
-			await Promise.all(configuration.plugins.map(
-				async plugin => [
-					plugin,
-					plugin === 'import'
-						? await import('./plugin-import/lib/index.js')
-						: (await import(`eslint-plugin-${plugin}`)).default
-				]
-			))
-		);
-	}
-
-	return configuration;
-}));
+import * as pluginImport from './plugin-import/lib/index.js';
 
 export default [
-	...configurations,
 	{
+		settings: {
+			'import/resolver': {
+				node: {
+					extensions: ['.mjs', '.js', '.json']
+				}
+			},
+			'import/extensions': ['.js', '.mjs', '.jsx'],
+			'import/core-modules': [],
+			'import/ignore': [
+				'node_modules',
+				'\\.(coffee|scss|css|less|hbs|svg|json)$'
+			]
+		},
 		languageOptions: {
 			globals: globals.node,
 			parserOptions: {
-				ecmaVersion: 2022,
+				ecmaVersion: 'latest',
 				sourceType: 'module'
 			}
 		},
 		linterOptions: {
 			reportUnusedDisableDirectives: true
 		},
+		plugins: {
+			import: pluginImport
+		},
 		rules: {
-			'array-callback-return': 'off',
+			'array-bracket-spacing': ['error', 'never'],
+			'arrow-body-style': ['error', 'as-needed', { requireReturnForObjectLiteral: false }],
 			'arrow-parens': ['error', 'as-needed'],
+			'arrow-spacing': ['error', { before: true, after: true }],
+			'block-scoped-var': 'error',
+			'block-spacing': ['error', 'always'],
+			'brace-style': ['error', '1tbs', { allowSingleLine: true }],
+			camelcase: ['error', {
+				ignoreDestructuring: false,
+				ignoreGlobals: false,
+				ignoreImports: false,
+				properties: 'never'
+			}],
+			'class-methods-use-this': ['error', { enforceForClassFields: true, exceptMethods: [] }],
 			'comma-dangle': ['error', 'never'],
-			'consistent-return': 'off',
+			'comma-spacing': ['error', { before: false, after: true }],
+			'comma-style': ['error', 'last', {
+				exceptions: {
+					ArrayExpression: false,
+					ArrayPattern: false,
+					ArrowFunctionExpression: false,
+					CallExpression: false,
+					FunctionDeclaration: false,
+					FunctionExpression: false,
+					ImportDeclaration: false,
+					NewExpression: false,
+					ObjectExpression: false,
+					ObjectPattern: false,
+					VariableDeclaration: false
+				}
+			}],
+			'computed-property-spacing': ['error', 'never'],
+			'constructor-super': 'error',
 			curly: ['error', 'all'],
-			'default-case': 'off',
-			'func-names': 'off',
-			'guard-for-in': 'off',
+			'default-case-last': 'error',
+			'default-param-last': 'error',
+			'dot-location': ['error', 'property'],
+			'dot-notation': ['error', { allowKeywords: true, allowPattern: '' }],
+			'eol-last': ['error', 'always'],
+			eqeqeq: ['error', 'always', { null: 'ignore' }],
+			'for-direction': 'error',
+			'func-call-spacing': ['error', 'never'],
+			'function-call-argument-newline': ['error', 'consistent'],
+			'function-paren-newline': ['error', 'multiline-arguments'],
+			'generator-star-spacing': ['error', { before: false, after: true }],
+			'getter-return': ['error', { allowImplicit: true }],
+			'global-require': 'error',
+			'grouped-accessor-pairs': 'error',
+			'implicit-arrow-linebreak': ['error', 'beside'],
 			'import/default': 'error',
+			'import/export': 'error',
 			'import/extensions': ['error', 'ignorePackages'],
+			'import/first': 'error',
+			'import/named': 'error',
+			'import/newline-after-import': 'error',
+			'import/no-absolute-path': 'error',
+			'import/no-amd': 'error',
 			'import/no-commonjs': 'error',
-			'import/no-extraneous-dependencies': 'error',
+			'import/no-cycle': ['error', { allowUnsafeDynamicCyclicDependency: false, ignoreExternal: false, maxDepth: '∞' }],
+			'import/no-duplicates': 'error',
+			'import/no-dynamic-require': 'error',
+			'import/no-extraneous-dependencies': ['error', { devDependencies: ['test/**', 'tests/**', 'spec/**', '**/__tests__/**', '**/__mocks__/**', 'test.{js,jsx}', 'test-*.{js,jsx}', '**/*{.,_}{test,spec}.{js,jsx}', '**/jest.config.js', '**/jest.setup.js', '**/vue.config.js', '**/webpack.config.js', '**/webpack.config.*.js', '**/rollup.config.js', '**/rollup.config.*.js', '**/gulpfile.js', '**/gulpfile.*.js', '**/Gruntfile{,.js}', '**/protractor.conf.js', '**/protractor.conf.*.js', '**/karma.conf.js', '**/.eslintrc.js'], optionalDependencies: false }],
+			'import/no-import-module-exports': ['error', { exceptions: [] }],
+			'import/no-mutable-exports': 'error',
+			'import/no-named-as-default': 'error',
+			'import/no-named-as-default-member': 'error',
+			'import/no-named-default': 'error',
+			'import/no-relative-packages': 'error',
+			'import/no-self-import': 'error',
+			'import/no-unresolved': ['error', { caseSensitive: true, caseSensitiveStrict: false, commonjs: true }],
+			'import/no-useless-path-segments': ['error', { commonjs: true }],
+			'import/no-webpack-loader-syntax': 'error',
+			'import/order': ['error', { distinctGroup: true, groups: [['builtin', 'external', 'internal']], warnOnUnassignedImports: false }],
+			'import/prefer-default-export': 'error',
 			indent: ['error', 'tab'],
-			'max-classes-per-file': 'off',
-			'no-await-in-loop': 'off',
-			'no-confusing-arrow': 'off',
-			'no-continue': 'off',
-			'no-mixed-operators': 'off',
+			'key-spacing': ['error', { beforeColon: false, afterColon: true }],
+			'keyword-spacing': ['error', {
+				before: true,
+				after: true,
+				overrides: {
+					case: { after: true },
+					return: { after: true },
+					throw: { after: true }
+				}
+			}],
+			'linebreak-style': ['error', 'unix'],
+			'lines-around-directive': ['error', { before: 'always', after: 'always' }],
+			'lines-between-class-members': ['error', 'always', { exceptAfterSingleLine: false }],
+			'max-len': ['error', 100, 2, {
+				ignoreComments: false,
+				ignoreRegExpLiterals: true,
+				ignoreStrings: true,
+				ignoreTemplateLiterals: true,
+				ignoreUrls: true
+			}],
+			'new-cap': ['error', {
+				capIsNew: false,
+				capIsNewExceptions: ['Immutable.Map', 'Immutable.Set', 'Immutable.List'],
+				newIsCap: true,
+				newIsCapExceptions: [],
+				properties: true
+			}],
+			'new-parens': 'error',
+			'newline-per-chained-call': ['error', { ignoreChainWithDepth: 4 }],
+			'no-alert': 'warn',
+			'no-array-constructor': 'error',
+			'no-async-promise-executor': 'error',
+			'no-bitwise': 'error',
+			'no-buffer-constructor': 'error',
+			'no-caller': 'error',
+			'no-case-declarations': 'error',
+			'no-class-assign': 'error',
+			'no-compare-neg-zero': 'error',
+			'no-cond-assign': ['error', 'always'],
+			'no-console': 'warn',
+			'no-const-assign': 'error',
+			'no-constant-condition': 'warn',
+			'no-constructor-return': 'error',
+			'no-control-regex': 'error',
+			'no-debugger': 'error',
+			'no-delete-var': 'error',
+			'no-dupe-args': 'error',
+			'no-dupe-class-members': 'error',
+			'no-dupe-else-if': 'error',
+			'no-dupe-keys': 'error',
+			'no-duplicate-case': 'error',
+			'no-else-return': ['error', { allowElseIf: false }],
+			'no-empty': 'error',
+			'no-empty-character-class': 'error',
+			'no-empty-function': ['error', { allow: ['arrowFunctions', 'functions', 'methods'] }],
+			'no-empty-pattern': 'error',
+			'no-eval': 'error',
+			'no-ex-assign': 'error',
+			'no-extend-native': 'error',
+			'no-extra-bind': 'error',
+			'no-extra-boolean-cast': 'error',
+			'no-extra-label': 'error',
+			'no-extra-semi': 'error',
+			'no-fallthrough': 'error',
+			'no-floating-decimal': 'error',
+			'no-func-assign': 'error',
+			'no-global-assign': ['error', { exceptions: [] }],
+			'no-implied-eval': 'error',
+			'no-import-assign': 'error',
+			'no-inner-declarations': 'error',
+			'no-invalid-regexp': 'error',
+			'no-irregular-whitespace': 'error',
+			'no-iterator': 'error',
+			'no-label-var': 'error',
+			'no-labels': ['error', { allowLoop: false, allowSwitch: false }],
+			'no-lone-blocks': 'error',
+			'no-lonely-if': 'error',
+			'no-loop-func': 'error',
+			'no-loss-of-precision': 'error',
+			'no-misleading-character-class': 'error',
+			'no-mixed-spaces-and-tabs': 'error',
+			'no-multi-assign': 'error',
+			'no-multi-spaces': ['error', { ignoreEOLComments: false }],
+			'no-multi-str': 'error',
 			'no-multiple-empty-lines': ['error', { max: 1, maxEOF: 0, maxBOF: 0 }],
-			'no-param-reassign': 'off',
-			'no-plusplus': 'off',
-			'no-restricted-exports': 'off',
-			'no-restricted-syntax': 'off',
-			'no-shadow': 'off',
+			'no-nested-ternary': 'error',
+			'no-new': 'error',
+			'no-new-func': 'error',
+			'no-new-object': 'error',
+			'no-new-require': 'error',
+			'no-new-symbol': 'error',
+			'no-new-wrappers': 'error',
+			'no-nonoctal-decimal-escape': 'error',
+			'no-obj-calls': 'error',
+			'no-octal': 'error',
+			'no-octal-escape': 'error',
+			'no-path-concat': 'error',
+			'no-promise-executor-return': 'error',
+			'no-proto': 'error',
+			'no-prototype-builtins': 'error',
+			'no-redeclare': 'error',
+			'no-regex-spaces': 'error',
+			'no-restricted-globals': [
+				'error',
+				{ name: 'isFinite', message: 'Use Number.isFinite instead https://github.com/airbnb/javascript#standard-library--isfinite' },
+				{ name: 'isNaN', message: 'Use Number.isNaN instead https://github.com/airbnb/javascript#standard-library--isnan' },
+				'addEventListener', 'blur', 'close', 'closed', 'confirm', 'defaultStatus', 'defaultstatus', 'event', 'external', 'find', 'focus', 'frameElement', 'frames', 'history', 'innerHeight', 'innerWidth', 'length', 'location', 'locationbar', 'menubar', 'moveBy', 'moveTo', 'name', 'onblur', 'onerror', 'onfocus', 'onload', 'onresize', 'onunload', 'open', 'opener', 'opera', 'outerHeight', 'outerWidth', 'pageXOffset', 'pageYOffset', 'parent', 'print', 'removeEventListener', 'resizeBy', 'resizeTo', 'screen', 'screenLeft', 'screenTop', 'screenX', 'screenY', 'scroll', 'scrollbars', 'scrollBy', 'scrollTo', 'scrollX', 'scrollY', 'self', 'status', 'statusbar', 'stop', 'toolbar', 'top'
+			],
+			'no-restricted-properties': [
+				'error',
+				{ object: 'arguments', property: 'callee', message: 'arguments.callee is deprecated' },
+				{ object: 'global', property: 'isFinite', message: 'Please use Number.isFinite instead' },
+				{ object: 'self', property: 'isFinite', message: 'Please use Number.isFinite instead' },
+				{ object: 'window', property: 'isFinite', message: 'Please use Number.isFinite instead' },
+				{ object: 'global', property: 'isNaN', message: 'Please use Number.isNaN instead' },
+				{ object: 'self', property: 'isNaN', message: 'Please use Number.isNaN instead' },
+				{ object: 'window', property: 'isNaN', message: 'Please use Number.isNaN instead' },
+				{ property: '__defineGetter__', message: 'Please use Object.defineProperty instead.' },
+				{ property: '__defineSetter__', message: 'Please use Object.defineProperty instead.' },
+				{ object: 'Math', property: 'pow', message: 'Use the exponentiation operator (**) instead.' }
+			],
+			'no-return-assign': ['error', 'always'],
+			'no-return-await': 'error',
+			'no-script-url': 'error',
+			'no-self-assign': ['error', { props: true }],
+			'no-self-compare': 'error',
+			'no-sequences': 'error',
+			'no-setter-return': 'error',
+			'no-shadow-restricted-names': 'error',
+			'no-spaced-func': 'error',
+			'no-sparse-arrays': 'error',
 			'no-tabs': ['error', { allowIndentationTabs: true }],
-			'no-use-before-define': ['error', { functions: false, classes: false, variables: false }],
+			'no-template-curly-in-string': 'error',
+			'no-this-before-super': 'error',
+			'no-throw-literal': 'error',
+			'no-trailing-spaces': ['error', { ignoreComments: false, skipBlankLines: false }],
+			'no-undef': 'error',
+			'no-undef-init': 'error',
+			'no-underscore-dangle': ['error', {
+				allow: [],
+				allowAfterSuper: false,
+				allowAfterThis: false,
+				allowAfterThisConstructor: false,
+				allowFunctionParams: true,
+				allowInArrayDestructuring: true,
+				allowInObjectDestructuring: true,
+				enforceInClassFields: false,
+				enforceInMethodNames: true
+			}],
+			'no-unexpected-multiline': 'error',
+			'no-unneeded-ternary': ['error', { defaultAssignment: false }],
+			'no-unreachable': 'error',
+			'no-unreachable-loop': ['error', { ignore: [] }],
+			'no-unsafe-finally': 'error',
+			'no-unsafe-negation': 'error',
+			'no-unsafe-optional-chaining': ['error', { disallowArithmeticOperators: true }],
+			'no-unused-expressions': ['error', {
+				allowShortCircuit: false,
+				allowTaggedTemplates: false,
+				allowTernary: false,
+				enforceForJSX: false
+			}],
+			'no-unused-labels': 'error',
+			'no-unused-vars': ['error', { args: 'after-used', ignoreRestSiblings: true, vars: 'all' }],
+			'no-use-before-define': ['error', { classes: false, functions: false, variables: false }],
+			'no-useless-backreference': 'error',
+			'no-useless-catch': 'error',
+			'no-useless-computed-key': 'error',
+			'no-useless-concat': 'error',
+			'no-useless-constructor': 'error',
+			'no-useless-escape': 'error',
+			'no-useless-rename': ['error', { ignoreDestructuring: false, ignoreExport: false, ignoreImport: false }],
+			'no-useless-return': 'error',
+			'no-var': 'error',
+			'no-void': 'error',
+			'no-whitespace-before-property': 'error',
+			'no-with': 'error',
+			'nonblock-statement-body-position': ['error', 'beside', { overrides: {} }],
+			'object-curly-newline': ['error', {
+				ExportDeclaration: { minProperties: 4, multiline: true, consistent: true },
+				ImportDeclaration: { minProperties: 4, multiline: true, consistent: true },
+				ObjectExpression: { minProperties: 4, multiline: true, consistent: true },
+				ObjectPattern: { minProperties: 4, multiline: true, consistent: true }
+			}],
+			'object-curly-spacing': ['error', 'always'],
+			'object-property-newline': ['error', { allowAllPropertiesOnSameLine: true, allowMultiplePropertiesPerLine: false }],
 			'object-shorthand': ['error', 'always'],
+			'one-var': ['error', 'never'],
+			'one-var-declaration-per-line': ['error', 'always'],
+			'operator-assignment': ['error', 'always'],
+			'operator-linebreak': ['error', 'before', { overrides: { '=': 'none' } }],
+			'padded-blocks': ['error', { blocks: 'never', classes: 'never', switches: 'never' }, { allowSingleLineBlocks: true }],
 			'padding-line-between-statements': [
 				'error',
 				{ blankLine: 'always', prev: '*', next: 'return' },
@@ -72,7 +305,53 @@ export default [
 				{ blankLine: 'always', prev: 'block-like', next: '*' },
 				{ blankLine: 'always', prev: '*', next: 'block-like' }
 			],
-			quotes: ['error', 'single', { avoidEscape: false }]
+			'prefer-arrow-callback': ['error', { allowNamedFunctions: false, allowUnboundThis: true }],
+			'prefer-const': ['error', { destructuring: 'any', ignoreReadBeforeAssign: true }],
+			'prefer-destructuring': [
+				'error',
+				{
+					AssignmentExpression: { array: true, object: false },
+					VariableDeclarator: { array: false, object: true }
+				},
+				{ enforceForRenamedProperties: false }],
+			'prefer-exponentiation-operator': 'error',
+			'prefer-numeric-literals': 'error',
+			'prefer-object-spread': 'error',
+			'prefer-promise-reject-errors': ['error', { allowEmptyReject: true }],
+			'prefer-regex-literals': ['error', { disallowRedundantWrapping: true }],
+			'prefer-rest-params': 'error',
+			'prefer-spread': 'error',
+			'prefer-template': 'error',
+			'quote-props': ['error', 'as-needed', { numbers: false, keywords: false, unnecessary: true }],
+			quotes: ['error', 'single', { avoidEscape: false }],
+			radix: 'error',
+			'require-yield': 'error',
+			'rest-spread-spacing': ['error', 'never'],
+			semi: ['error', 'always'],
+			'semi-spacing': ['error', { before: false, after: true }],
+			'semi-style': ['error', 'last'],
+			'space-before-blocks': 'error',
+			'space-before-function-paren': ['error', { anonymous: 'always', asyncArrow: 'always', named: 'never' }],
+			'space-in-parens': ['error', 'never'],
+			'space-infix-ops': 'error',
+			'space-unary-ops': ['error', { nonwords: false, overrides: {}, words: true }],
+			'spaced-comment': ['error', 'always', {
+				block: { exceptions: ['-', '+'], markers: ['=', '!', ':', '::'], balanced: true },
+				line: { exceptions: ['-', '+'], markers: ['=', '!', '/'] }
+			}
+			],
+			strict: ['error', 'never'],
+			'switch-colon-spacing': ['error', { after: true, before: false }],
+			'symbol-description': 'error',
+			'template-curly-spacing': 'error',
+			'template-tag-spacing': ['error', 'never'],
+			'unicode-bom': ['error', 'never'],
+			'use-isnan': 'error',
+			'valid-typeof': ['error', { requireStringLiterals: true }],
+			'vars-on-top': 'error',
+			'wrap-iife': ['error', 'outside', { functionPrototypeMethods: false }],
+			'yield-star-spacing': ['error', 'after'],
+			yoda: 'error'
 		}
 	}
 ];
