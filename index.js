@@ -34,7 +34,7 @@ export default [
 			stylistic: pluginStylistic
 		},
 		rules: {
-			'arbendium/brace-style': ['error', '1tbs', { allowSingleLine: true }],
+			'arbendium/brace-style': ['error', '1tbs', { allowSingleLineFunctionBody: true }],
 			'arrow-body-style': ['error', 'as-needed', { requireReturnForObjectLiteral: false }],
 			'block-scoped-var': 'error',
 			camelcase: ['error', {

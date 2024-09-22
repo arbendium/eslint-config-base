@@ -29,6 +29,10 @@ export default createRule({
 					allowSingleLine: {
 						type: 'boolean',
 						default: false
+					},
+					allowSingleLineFunctionBody: {
+						type: 'boolean',
+						default: false
 					}
 				},
 				additionalProperties: false
@@ -48,7 +52,7 @@ export default createRule({
 	create(context) {
 		const [
 			style = '1tbs',
-			{ allowSingleLine = false } = {}
+			{ allowSingleLine = false, allowSingleLineFunctionBody = false } = {}
 		] = context.options;
 
 		const isAllmanStyle = style === 'allman';
@@ -76,10 +80,17 @@ export default createRule({
 		 * Validates a pair of curly brackets based on the user's config
 		 * @param openingCurly The opening curly bracket
 		 * @param closingCurly The closing curly bracket
+		 * @param statementType Parent statement type
 		 */
-		function validateCurlyPair(openingCurly, closingCurly) {
-			if (allowSingleLine && isTokenOnSameLine(openingCurly, closingCurly)) {
-				return;
+		function validateCurlyPair(openingCurly, closingCurly, statementType) {
+			if (isTokenOnSameLine(openingCurly, closingCurly)) {
+				if (allowSingleLine) {
+					return;
+				}
+
+				if (allowSingleLineFunctionBody && ['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(statementType)) {
+					return;
+				}
 			}
 
 			const tokenBeforeOpeningCurly = sourceCode.getTokenBefore(openingCurly);
@@ -151,7 +162,7 @@ export default createRule({
 		return {
 			BlockStatement(node) {
 				if (!STATEMENT_LIST_PARENTS.has(node.parent.type)) {
-					validateCurlyPair(sourceCode.getFirstToken(node), sourceCode.getLastToken(node));
+					validateCurlyPair(sourceCode.getFirstToken(node), sourceCode.getLastToken(node), node.parent.type);
 				}
 			},
 			StaticBlock(node) {
