@@ -1,5 +1,6 @@
 import globals from 'globals';
 import pluginStylistic from '@stylistic/eslint-plugin';
+import * as pluginArbendium from './plugin-arbendium/index.js';
 import * as pluginImport from './plugin-import/lib/index.js';
 
 export default [
@@ -28,10 +29,12 @@ export default [
 			reportUnusedDisableDirectives: true
 		},
 		plugins: {
+			arbendium: pluginArbendium,
 			import: pluginImport,
 			stylistic: pluginStylistic
 		},
 		rules: {
+			'arbendium/brace-style': ['error', '1tbs', { allowSingleLine: true }],
 			'arrow-body-style': ['error', 'as-needed', { requireReturnForObjectLiteral: false }],
 			'block-scoped-var': 'error',
 			camelcase: ['error', {
@@ -250,7 +253,6 @@ export default [
 			'stylistic/arrow-parens': ['error', 'as-needed'],
 			'stylistic/arrow-spacing': ['error', { before: true, after: true }],
 			'stylistic/block-spacing': ['error', 'always'],
-			'stylistic/brace-style': ['error', '1tbs', { allowSingleLine: true }],
 			'stylistic/comma-dangle': ['error', 'never'],
 			'stylistic/comma-spacing': ['error', { before: false, after: true }],
 			'stylistic/comma-style': ['error', 'last', {
