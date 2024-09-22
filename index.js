@@ -91,7 +91,7 @@ export default [
 			'import/no-cycle': ['error', { allowUnsafeDynamicCyclicDependency: false, ignoreExternal: false, maxDepth: '∞' }],
 			'import/no-duplicates': 'error',
 			'import/no-dynamic-require': 'error',
-			'import/no-extraneous-dependencies': ['error', { devDependencies: ['test/**', 'tests/**', 'spec/**', '**/__tests__/**', '**/__mocks__/**', 'test.{js,jsx}', 'test-*.{js,jsx}', '**/*{.,_}{test,spec}.{js,jsx}', '**/jest.config.js', '**/jest.setup.js', '**/vue.config.js', '**/webpack.config.js', '**/webpack.config.*.js', '**/rollup.config.js', '**/rollup.config.*.js', '**/gulpfile.js', '**/gulpfile.*.js', '**/Gruntfile{,.js}', '**/protractor.conf.js', '**/protractor.conf.*.js', '**/karma.conf.js', '**/.eslintrc.js'], optionalDependencies: false }],
+			'import/no-extraneous-dependencies': 'error',
 			'import/no-import-module-exports': ['error', { exceptions: [] }],
 			'import/no-mutable-exports': 'error',
 			'import/no-named-as-default': 'error',
@@ -127,7 +127,6 @@ export default [
 			}],
 			'new-cap': ['error', {
 				capIsNew: false,
-				capIsNewExceptions: ['Immutable.Map', 'Immutable.Set', 'Immutable.List'],
 				newIsCap: true,
 				newIsCapExceptions: [],
 				properties: true
