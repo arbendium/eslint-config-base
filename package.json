@@ -6,11 +6,12 @@
   "type": "module",
   "files": [
     "index.js",
+    "plugin-arbendium",
     "plugin-import"
   ],
   "exports": "./index.js",
   "scripts": {
-    "lint": "eslint index.js eslint.config.js"
+    "lint": "eslint plugin-arbendium index.js eslint.config.js"
   },
   "license": "ISC",
   "dependencies": {
