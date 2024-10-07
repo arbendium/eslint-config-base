@@ -5,12 +5,11 @@
   "repository": "github:arbendium/eslint-config-base",
   "type": "module",
   "files": [
-    "index.js",
-    "plugin-arbendium"
+    "index.js"
   ],
   "exports": "./index.js",
   "scripts": {
-    "lint": "eslint plugin-arbendium index.js eslint.config.js"
+    "lint": "eslint index.js eslint.config.js"
   },
   "license": "ISC",
   "dependencies": {
