@@ -1,7 +1,6 @@
 import * as pluginImport from 'eslint-plugin-import';
 import globals from 'globals';
 import pluginStylistic from '@stylistic/eslint-plugin';
-import * as pluginArbendium from './plugin-arbendium/index.js';
 
 export default [
 	{
@@ -29,19 +28,10 @@ export default [
 			reportUnusedDisableDirectives: true
 		},
 		plugins: {
-			arbendium: pluginArbendium,
 			import: pluginImport,
 			stylistic: pluginStylistic
 		},
 		rules: {
-			'arbendium/curly-newline': ['error', {
-				minElements: 0,
-				ArrowFunctionExpression: { consistent: true, minElements: 4, multiline: true },
-				ClassBody: { consistent: true, minElements: 4, multiline: true },
-				FunctionDeclaration: { consistent: true, minElements: 4, multiline: true },
-				FunctionExpression: { consistent: true, minElements: 4, multiline: true },
-				Property: { consistent: true, minElements: 4, multiline: true }
-			}],
 			'arrow-body-style': ['error', 'as-needed', { requireReturnForObjectLiteral: false }],
 			'block-scoped-var': 'error',
 			camelcase: ['error', {
@@ -279,6 +269,14 @@ export default [
 				}
 			}],
 			'stylistic/computed-property-spacing': ['error', 'never'],
+			'stylistic/curly-newline': ['error', {
+				minElements: 0,
+				ArrowFunctionExpression: { consistent: true, minElements: 4, multiline: true },
+				ClassBody: { consistent: true, minElements: 4, multiline: true },
+				FunctionDeclaration: { consistent: true, minElements: 4, multiline: true },
+				FunctionExpression: { consistent: true, minElements: 4, multiline: true },
+				Property: { consistent: true, minElements: 4, multiline: true }
+			}],
 			'stylistic/dot-location': ['error', 'property'],
 			'stylistic/eol-last': ['error', 'always'],
 			'stylistic/func-call-spacing': ['error', 'never'],
