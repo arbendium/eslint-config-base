@@ -20,6 +20,6 @@
     "globals": "^15.14.0"
   },
   "peerDependencies": {
-    "eslint": "^8.57.0"
+    "eslint": "^9.17.0"
   }
 }
