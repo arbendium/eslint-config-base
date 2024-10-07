@@ -1,7 +1,7 @@
+import * as pluginImport from 'eslint-plugin-import';
 import globals from 'globals';
 import pluginStylistic from '@stylistic/eslint-plugin';
 import * as pluginArbendium from './plugin-arbendium/index.js';
-import * as pluginImport from './plugin-import/lib/index.js';
 
 export default [
 	{

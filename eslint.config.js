@@ -1,8 +1,1 @@
-import base from './index.js';
-
-export default [
-	...base,
-	{
-		ignores: ['plugin-import']
-	}
-];
+export { default } from './index.js';
