@@ -5,11 +5,13 @@
   "repository": "github:arbendium/eslint-config-base",
   "type": "module",
   "files": [
-    "index.js"
+    "index.js",
+    "index.d.ts"
   ],
   "exports": "./index.js",
   "scripts": {
-    "lint": "eslint index.js eslint.config.js"
+    "lint": "eslint index.js eslint.config.js",
+    "typecheck": "tsc"
   },
   "license": "ISC",
   "dependencies": {
@@ -20,5 +22,8 @@
   },
   "peerDependencies": {
     "eslint": "^9.17.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
   }
 }
