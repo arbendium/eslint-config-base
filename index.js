@@ -287,7 +287,7 @@ export default [
 			'stylistic/function-paren-newline': ['error', 'multiline-arguments'],
 			'stylistic/generator-star-spacing': ['error', { before: false, after: true }],
 			'stylistic/implicit-arrow-linebreak': ['error', 'beside'],
-			'stylistic/indent': ['error', 'tab', { SwitchCase: 0 }],
+			'stylistic/indent': ['error', 'tab'],
 			'stylistic/key-spacing': ['error', { beforeColon: false, afterColon: true }],
 			'stylistic/keyword-spacing': ['error', {
 				before: true,
