@@ -48,7 +48,6 @@ export default [
 			'constructor-super': 'error',
 			curly: ['error', 'all'],
 			'default-case-last': 'error',
-			'default-param-last': 'error',
 			'dot-notation': ['error', { allowKeywords: true, allowPattern: '' }],
 			eqeqeq: ['error', 'always', { null: 'ignore' }],
 			'for-direction': 'error',
