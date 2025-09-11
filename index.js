@@ -11,29 +11,29 @@ export default [
 		settings: {
 			'import/resolver': {
 				node: {
-					extensions: ['.mjs', '.js', '.json']
-				}
+					extensions: ['.mjs', '.js', '.json'],
+				},
 			},
 			'import/extensions': ['.js', '.mjs', '.jsx'],
 			'import/core-modules': [],
 			'import/ignore': [
 				'node_modules',
-				'\\.(coffee|scss|css|less|hbs|svg|json)$'
-			]
+				'\\.(coffee|scss|css|less|hbs|svg|json)$',
+			],
 		},
 		languageOptions: {
 			globals: globals.node,
 			parserOptions: {
 				ecmaVersion: 'latest',
-				sourceType: 'module'
-			}
+				sourceType: 'module',
+			},
 		},
 		linterOptions: {
-			reportUnusedDisableDirectives: true
+			reportUnusedDisableDirectives: true,
 		},
 		plugins: {
 			import: pluginImport,
-			stylistic: pluginStylistic
+			stylistic: pluginStylistic,
 		},
 		rules: {
 			'arrow-body-style': ['error', 'as-needed', { requireReturnForObjectLiteral: false }],
@@ -42,7 +42,7 @@ export default [
 				ignoreDestructuring: false,
 				ignoreGlobals: false,
 				ignoreImports: false,
-				properties: 'never'
+				properties: 'never',
 			}],
 			'class-methods-use-this': ['error', { enforceForClassFields: true, exceptMethods: [] }],
 			'constructor-super': 'error',
@@ -84,7 +84,7 @@ export default [
 				capIsNew: false,
 				newIsCap: true,
 				newIsCapExceptions: [],
-				properties: true
+				properties: true,
 			}],
 			'no-alert': 'warn',
 			'no-array-constructor': 'error',
@@ -158,7 +158,7 @@ export default [
 				'error',
 				{ name: 'isFinite', message: 'Use Number.isFinite instead https://github.com/airbnb/javascript#standard-library--isfinite' },
 				{ name: 'isNaN', message: 'Use Number.isNaN instead https://github.com/airbnb/javascript#standard-library--isnan' },
-				'addEventListener', 'blur', 'close', 'closed', 'confirm', 'defaultStatus', 'defaultstatus', 'event', 'external', 'find', 'focus', 'frameElement', 'frames', 'history', 'innerHeight', 'innerWidth', 'length', 'location', 'locationbar', 'menubar', 'moveBy', 'moveTo', 'name', 'onblur', 'onerror', 'onfocus', 'onload', 'onresize', 'onunload', 'open', 'opener', 'opera', 'outerHeight', 'outerWidth', 'pageXOffset', 'pageYOffset', 'parent', 'print', 'removeEventListener', 'resizeBy', 'resizeTo', 'screen', 'screenLeft', 'screenTop', 'screenX', 'screenY', 'scroll', 'scrollbars', 'scrollBy', 'scrollTo', 'scrollX', 'scrollY', 'self', 'status', 'statusbar', 'stop', 'toolbar', 'top'
+				'addEventListener', 'blur', 'close', 'closed', 'confirm', 'defaultStatus', 'defaultstatus', 'event', 'external', 'find', 'focus', 'frameElement', 'frames', 'history', 'innerHeight', 'innerWidth', 'length', 'location', 'locationbar', 'menubar', 'moveBy', 'moveTo', 'name', 'onblur', 'onerror', 'onfocus', 'onload', 'onresize', 'onunload', 'open', 'opener', 'opera', 'outerHeight', 'outerWidth', 'pageXOffset', 'pageYOffset', 'parent', 'print', 'removeEventListener', 'resizeBy', 'resizeTo', 'screen', 'screenLeft', 'screenTop', 'screenX', 'screenY', 'scroll', 'scrollbars', 'scrollBy', 'scrollTo', 'scrollX', 'scrollY', 'self', 'status', 'statusbar', 'stop', 'toolbar', 'top',
 			],
 			'no-restricted-properties': [
 				'error',
@@ -171,7 +171,7 @@ export default [
 				{ object: 'window', property: 'isNaN', message: 'Please use Number.isNaN instead' },
 				{ property: '__defineGetter__', message: 'Please use Object.defineProperty instead.' },
 				{ property: '__defineSetter__', message: 'Please use Object.defineProperty instead.' },
-				{ object: 'Math', property: 'pow', message: 'Use the exponentiation operator (**) instead.' }
+				{ object: 'Math', property: 'pow', message: 'Use the exponentiation operator (**) instead.' },
 			],
 			'no-return-assign': ['error', 'always'],
 			'no-return-await': 'error',
@@ -197,7 +197,7 @@ export default [
 				allowInArrayDestructuring: true,
 				allowInObjectDestructuring: true,
 				enforceInClassFields: false,
-				enforceInMethodNames: true
+				enforceInMethodNames: true,
 			}],
 			'no-unexpected-multiline': 'error',
 			'no-unneeded-ternary': ['error', { defaultAssignment: false }],
@@ -210,7 +210,7 @@ export default [
 				allowShortCircuit: false,
 				allowTaggedTemplates: false,
 				allowTernary: false,
-				enforceForJSX: false
+				enforceForJSX: false,
 			}],
 			'no-unused-labels': 'error',
 			'no-unused-vars': ['error', { args: 'after-used', ignoreRestSiblings: true, vars: 'all' }],
@@ -235,7 +235,7 @@ export default [
 				'error',
 				{
 					AssignmentExpression: { array: true, object: false },
-					VariableDeclarator: { array: false, object: true }
+					VariableDeclarator: { array: false, object: true },
 				},
 				{ enforceForRenamedProperties: false }],
 			'prefer-exponentiation-operator': 'error',
@@ -254,7 +254,7 @@ export default [
 			'stylistic/arrow-spacing': ['error', { before: true, after: true }],
 			'stylistic/block-spacing': ['error', 'always'],
 			'stylistic/brace-style': ['error', '1tbs', { allowSingleLine: true }],
-			'stylistic/comma-dangle': ['error', 'never'],
+			'stylistic/comma-dangle': ['error', 'always-multiline'],
 			'stylistic/comma-spacing': ['error', { before: false, after: true }],
 			'stylistic/comma-style': ['error', 'last', {
 				exceptions: {
@@ -268,8 +268,8 @@ export default [
 					NewExpression: false,
 					ObjectExpression: false,
 					ObjectPattern: false,
-					VariableDeclaration: false
-				}
+					VariableDeclaration: false,
+				},
 			}],
 			'stylistic/computed-property-spacing': ['error', 'never'],
 			'stylistic/curly-newline': ['error', {
@@ -278,7 +278,7 @@ export default [
 				ClassBody: { consistent: true, minElements: 4, multiline: true },
 				FunctionDeclaration: { consistent: true, minElements: 4, multiline: true },
 				FunctionExpression: { consistent: true, minElements: 4, multiline: true },
-				Property: { consistent: true, minElements: 4, multiline: true }
+				Property: { consistent: true, minElements: 4, multiline: true },
 			}],
 			'stylistic/dot-location': ['error', 'property'],
 			'stylistic/eol-last': ['error', 'always'],
@@ -295,8 +295,8 @@ export default [
 				overrides: {
 					case: { after: true },
 					return: { after: true },
-					throw: { after: true }
-				}
+					throw: { after: true },
+				},
 			}],
 			'stylistic/linebreak-style': ['error', 'unix'],
 			'stylistic/lines-between-class-members': ['error', 'always', { exceptAfterSingleLine: false }],
@@ -305,7 +305,7 @@ export default [
 				ignoreRegExpLiterals: true,
 				ignoreStrings: true,
 				ignoreTemplateLiterals: true,
-				ignoreUrls: true
+				ignoreUrls: true,
 			}],
 			'stylistic/new-parens': 'error',
 			'stylistic/newline-per-chained-call': ['error', { ignoreChainWithDepth: 4 }],
@@ -322,7 +322,7 @@ export default [
 				ExportDeclaration: { minProperties: 4, multiline: true, consistent: true },
 				ImportDeclaration: { minProperties: 4, multiline: true, consistent: true },
 				ObjectExpression: { minProperties: 4, multiline: true, consistent: true },
-				ObjectPattern: { minProperties: 4, multiline: true, consistent: true }
+				ObjectPattern: { minProperties: 4, multiline: true, consistent: true },
 			}],
 			'stylistic/object-curly-spacing': ['error', 'always'],
 			'stylistic/object-property-newline': ['error', { allowAllPropertiesOnSameLine: true, allowMultiplePropertiesPerLine: false }],
@@ -335,7 +335,7 @@ export default [
 				{ blankLine: 'always', prev: '*', next: 'throw' },
 				{ blankLine: 'never', prev: 'import', next: 'import' },
 				{ blankLine: 'always', prev: 'block-like', next: '*' },
-				{ blankLine: 'always', prev: '*', next: 'block-like' }
+				{ blankLine: 'always', prev: '*', next: 'block-like' },
 			],
 			'stylistic/quote-props': ['error', 'as-needed', { numbers: false, keywords: false, unnecessary: true }],
 			'stylistic/quotes': ['error', 'single', { avoidEscape: false }],
@@ -359,7 +359,7 @@ export default [
 			'use-isnan': 'error',
 			'valid-typeof': ['error', { requireStringLiterals: true }],
 			'vars-on-top': 'error',
-			yoda: 'error'
-		}
-	}
+			yoda: 'error',
+		},
+	},
 ];
