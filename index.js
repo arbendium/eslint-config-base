@@ -307,6 +307,10 @@ export default [
 				ignoreTemplateLiterals: true,
 				ignoreUrls: true,
 			}],
+			'stylistic/member-delimiter-style': ['error', {
+				multiline: { delimiter: 'none' },
+				singleline: { delimiter: 'comma' },
+			}],
 			'stylistic/new-parens': 'error',
 			'stylistic/newline-per-chained-call': ['error', { ignoreChainWithDepth: 4 }],
 			'stylistic/no-extra-semi': 'error',
