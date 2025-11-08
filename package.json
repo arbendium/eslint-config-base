@@ -1,6 +1,6 @@
 {
   "name": "@arbendium/eslint-config-base",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "ESLint base config based on Airbnb's base config",
   "repository": "github:arbendium/eslint-config-base",
   "type": "module",
