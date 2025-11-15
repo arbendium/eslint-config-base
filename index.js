@@ -1,4 +1,3 @@
-// @ts-expect-error
 import * as pluginImport from 'eslint-plugin-import';
 import globals from 'globals';
 import pluginStylistic from '@stylistic/eslint-plugin';
