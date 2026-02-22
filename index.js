@@ -312,6 +312,7 @@ export default [
 				multiline: { delimiter: 'none' },
 				singleline: { delimiter: 'comma' },
 			}],
+			'stylistic/multiline-ternary': ['error', 'always-multiline'],
 			'stylistic/new-parens': 'error',
 			'stylistic/newline-per-chained-call': ['error', { ignoreChainWithDepth: 4 }],
 			'stylistic/no-extra-semi': 'error',
