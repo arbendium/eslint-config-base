@@ -1,6 +1,6 @@
 import { dirname } from 'path';
-import { tsConfigLoader } from 'tsconfig-paths/lib/tsconfig-loader.js';
-import { hashObject } from 'eslint-module-utils/hash.js';
+import { tsConfigLoader } from 'tsconfig-paths/lib/tsconfig-loader';
+import { hashObject } from 'eslint-module-utils/hash';
 
 let ts;
 const tsconfigCache = new Map();

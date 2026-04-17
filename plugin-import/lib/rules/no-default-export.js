@@ -1,4 +1,7 @@
+import { getSourceCode } from 'eslint-module-utils/contextCompat';
+
 import docsUrl from '../docsUrl.js';
+import sourceType from '../core/sourceType';
 
 export default {
   meta: {
@@ -13,7 +16,7 @@ export default {
 
   create(context) {
     // ignore non-modules
-    if (context.parserOptions.sourceType !== 'module') {
+    if (sourceType(context) !== 'module') {
       return {};
     }
 
@@ -22,7 +25,7 @@ export default {
 
     return {
       ExportDefaultDeclaration(node) {
-        const { loc } = context.getSourceCode().getFirstTokens(node)[1] || {};
+        const { loc } = getSourceCode(context).getFirstTokens(node)[1] || {};
         context.report({ node, message: preferNamed, loc });
       },
 
@@ -30,7 +33,7 @@ export default {
         node.specifiers
           .filter((specifier) => (specifier.exported.name || specifier.exported.value) === 'default')
           .forEach((specifier) => {
-            const { loc } = context.getSourceCode().getFirstTokens(node)[1] || {};
+            const { loc } = getSourceCode(context).getFirstTokens(node)[1] || {};
             if (specifier.type === 'ExportDefaultSpecifier') {
               context.report({ node, message: preferNamed, loc });
             } else if (specifier.type === 'ExportSpecifier') {

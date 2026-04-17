@@ -3,6 +3,10 @@
  * @author Duncan Beevers
  */
 
+import hasOwn from 'hasown';
+import values from 'object.values';
+import fromEntries from 'object.fromentries';
+
 import docsUrl from '../docsUrl.js';
 
 const defs = {
@@ -56,12 +60,12 @@ const defs = {
   },
 };
 
-const schemaProperties = Object.fromEntries(Object.values(defs).map((def) => [def.option, {
+const schemaProperties = fromEntries(values(defs).map((def) => [def.option, {
   description: def.description,
   type: 'boolean',
 }]));
 
-const defaults = Object.fromEntries(Object.values(defs).map((def) => [def.option, 'default' in def ? def.default : false]));
+const defaults = fromEntries(values(defs).map((def) => [def.option, hasOwn(def, 'default') ? def.default : false]));
 
 export default {
   meta: {

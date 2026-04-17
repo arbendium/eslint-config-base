@@ -1,6 +1,6 @@
-import declaredScope from '../core/declaredScope.js';
-import ExportMapBuilder from '../exportMap/builder.js';
-import ExportMap from '../exportMap/index.js';
+import declaredScope from 'eslint-module-utils/declaredScope';
+import ExportMapBuilder from '../exportMap/builder';
+import ExportMap from '../exportMap';
 import docsUrl from '../docsUrl.js';
 
 function message(deprecation) {
@@ -98,7 +98,7 @@ export default {
 
         if (!deprecated.has(node.name)) { return; }
 
-        if (declaredScope(context, node.name) !== 'module') { return; }
+        if (declaredScope(context, node.name, node) !== 'module') { return; }
         context.report({
           node,
           message: message(deprecated.get(node.name)),
@@ -109,7 +109,7 @@ export default {
         if (dereference.object.type !== 'Identifier') { return; }
         if (!namespaces.has(dereference.object.name)) { return; }
 
-        if (declaredScope(context, dereference.object.name) !== 'module') { return; }
+        if (declaredScope(context, dereference.object.name, dereference) !== 'module') { return; }
 
         // go deep
         let namespace = namespaces.get(dereference.object.name);

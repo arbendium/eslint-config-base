@@ -1,6 +1,12 @@
-import ExportMapBuilder from '../exportMap/builder.js';
+import ExportMapBuilder from '../exportMap/builder';
 import docsUrl from '../docsUrl.js';
 
+/**
+ * @import { AST, Rule, SourceCode } from 'eslint'
+ * @import { ExportNamedDeclaration, ImportDeclaration } from 'estree'
+ */
+
+/** @type {Rule.RuleModule} */
 export default {
   meta: {
     type: 'problem',
@@ -13,6 +19,10 @@ export default {
   },
 
   create(context) {
+    /**
+     * @param {'ExportDefaultSpecifier' | 'ImportDefaultSpecifier'} specifierType
+     * @param {ExportNamedDeclaration | ImportDeclaration} node
+     */
     function checkDefault(specifierType, node) {
       const defaultSpecifier = node.specifiers.find(
         (specifier) => specifier.type === specifierType,

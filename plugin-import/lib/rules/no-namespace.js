@@ -3,7 +3,9 @@
  * @author Radek Benkel
  */
 
-import { minimatch } from 'minimatch';
+import minimatch from 'minimatch';
+import { getScope, getSourceCode } from 'eslint-module-utils/contextCompat';
+
 import docsUrl from '../docsUrl.js';
 
 /**
@@ -108,7 +110,7 @@ export default {
           return;
         }
 
-        const scopeVariables = context.getScope().variables;
+        const scopeVariables = getScope(context, node).variables;
         const namespaceVariable = scopeVariables.find((variable) => variable.defs[0].node === node);
         const namespaceReferences = namespaceVariable.references;
         const namespaceIdentifiers = namespaceReferences.map((reference) => reference.identifier);
@@ -118,7 +120,7 @@ export default {
           node,
           message: `Unexpected namespace import.`,
           fix: canFix && ((fixer) => {
-            const scopeManager = context.getSourceCode().scopeManager;
+            const { scopeManager } = getSourceCode(context);
             const fixes = [];
 
             // Pass 1: Collect variable names that are already in scope for each reference we want

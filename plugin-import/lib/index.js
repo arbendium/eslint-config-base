@@ -40,6 +40,7 @@ import noUselessPathSegments from './rules/no-useless-path-segments.js';
 import dynamicImportChunkname from './rules/dynamic-import-chunkname.js';
 import noImportModuleExports from './rules/no-import-module-exports.js';
 import noEmptyNamedBlocks from './rules/no-empty-named-blocks.js';
+import enforceNodeProtocolUsage from './rules/enforce-node-protocol-usage.js';
 import exportsLast from './rules/exports-last.js';
 import noDeprecated from './rules/no-deprecated.js';
 import importsFirst from './rules/imports-first.js';
@@ -90,6 +91,7 @@ export const rules = {
 	'dynamic-import-chunkname': dynamicImportChunkname,
 	'no-import-module-exports': noImportModuleExports,
 	'no-empty-named-blocks': noEmptyNamedBlocks,
+	'enforce-node-protocol-usage': enforceNodeProtocolUsage,
 
 	// export
 	'exports-last': exportsLast,

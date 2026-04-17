@@ -3,9 +3,10 @@
  * @author Thomas Grainger
  */
 
-import { getFileExtensions } from '../core/ignore.js';
-import moduleVisitor from '../core/moduleVisitor.js';
-import resolve from '../core/resolve.js';
+import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
+import { getFileExtensions } from 'eslint-module-utils/ignore';
+import moduleVisitor from 'eslint-module-utils/moduleVisitor';
+import resolve from 'eslint-module-utils/resolve';
 import path from 'path';
 import docsUrl from '../docsUrl.js';
 
@@ -60,7 +61,7 @@ export default {
   },
 
   create(context) {
-    const currentDir = path.dirname(context.getPhysicalFilename ? context.getPhysicalFilename() : context.getFilename());
+    const currentDir = path.dirname(context.getPhysicalFilename());
     const options = context.options[0];
 
     function checkSourceValue(source) {

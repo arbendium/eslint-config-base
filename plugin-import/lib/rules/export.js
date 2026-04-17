@@ -1,6 +1,7 @@
-import ExportMapBuilder from '../exportMap/builder.js';
-import recursivePatternCapture from '../exportMap/patternCapture.js';
+import ExportMapBuilder from '../exportMap/builder';
+import recursivePatternCapture from '../exportMap/patternCapture';
 import docsUrl from '../docsUrl.js';
+import includes from 'array-includes';
 
 /*
 Notes on TypeScript namespaces aka TSModuleDeclaration:
@@ -25,41 +26,25 @@ const rootProgram = 'root';
 const tsTypePrefix = 'type:';
 
 /**
- * Detect function overloads like:
+ * remove function overloads like:
  * ```ts
  * export function foo(a: number);
  * export function foo(a: string);
- * export function foo(a: number|string) { return a; }
  * ```
  * @param {Set<Object>} nodes
- * @returns {boolean}
  */
-function isTypescriptFunctionOverloads(nodes) {
-  const nodesArr = Array.from(nodes);
-
-  const idents = nodesArr.flatMap(
-    (node) => node.declaration && (
-      node.declaration.type === 'TSDeclareFunction' // eslint 6+
-      || node.declaration.type === 'TSEmptyBodyFunctionDeclaration' // eslint 4-5
-    )
-      ? node.declaration.id.name
-      : [],
-  );
-  if (new Set(idents).size !== idents.length) {
-    return true;
-  }
-
-  const types = new Set(nodesArr.map((node) => node.parent.type));
-  if (!types.has('TSDeclareFunction')) {
-    return false;
-  }
-  if (types.size === 1) {
-    return true;
-  }
-  if (types.size === 2 && types.has('FunctionDeclaration')) {
-    return true;
-  }
-  return false;
+function removeTypescriptFunctionOverloads(nodes) {
+  nodes.forEach((node) => {
+    const declType = node.type === 'ExportDefaultDeclaration' ? node.declaration.type : node.parent.type;
+    if (
+      // eslint 6+
+      declType === 'TSDeclareFunction'
+      // eslint 4-5
+      || declType === 'TSEmptyBodyFunctionDeclaration'
+    ) {
+      nodes.delete(node);
+    }
+  });
 }
 
 /**
@@ -172,10 +157,10 @@ export default {
         const isTypeVariableDecl = node.declaration.kind === 'type';
 
         if (node.declaration.id != null) {
-          if ([
+          if (includes([
             'TSTypeAliasDeclaration',
             'TSInterfaceDeclaration',
-          ].includes(node.declaration.type)) {
+          ], node.declaration.type)) {
             addNamed(node.declaration.id.name, node.declaration.id, parent, true);
           } else {
             addNamed(node.declaration.id.name, node.declaration.id, parent, isTypeVariableDecl);
@@ -224,9 +209,11 @@ export default {
       'Program:exit'() {
         for (const [, named] of namespace) {
           for (const [name, nodes] of named) {
+            removeTypescriptFunctionOverloads(nodes);
+
             if (nodes.size <= 1) { continue; }
 
-            if (isTypescriptFunctionOverloads(nodes) || isTypescriptNamespaceMerging(nodes)) { continue; }
+            if (isTypescriptNamespaceMerging(nodes)) { continue; }
 
             for (const node of nodes) {
               if (shouldSkipTypescriptNamespace(node, nodes)) { continue; }

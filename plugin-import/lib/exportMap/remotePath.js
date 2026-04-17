@@ -1,4 +1,4 @@
-import resolve from 'eslint-module-utils/resolve.js';
+import resolve from 'eslint-module-utils/resolve';
 
 export class RemotePath {
   constructor(path, context) {

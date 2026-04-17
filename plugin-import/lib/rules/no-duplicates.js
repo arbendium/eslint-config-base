@@ -1,5 +1,7 @@
-import resolve from '../core/resolve.js';
+import { getSourceCode } from 'eslint-module-utils/contextCompat';
+import resolve from 'eslint-module-utils/resolve';
 import semver from 'semver';
+import flatMap from 'array.prototype.flatmap';
 
 import docsUrl from '../docsUrl.js';
 
@@ -72,6 +74,7 @@ function hasProblematicComments(node, sourceCode) {
   );
 }
 
+/** @type {(first: import('estree').ImportDeclaration, rest: import('estree').ImportDeclaration[], sourceCode: import('eslint').SourceCode.SourceCode, context: import('eslint').Rule.RuleContext) => import('eslint').Rule.ReportFixer | undefined} */
 function getFix(first, rest, sourceCode, context) {
   // Sorry ESLint <= 3 users, no autofix for you. Autofixing duplicate imports
   // requires multiple `fixer.whatever()` calls in the `fix`: We both need to
@@ -92,7 +95,7 @@ function getFix(first, rest, sourceCode, context) {
   }
 
   const defaultImportNames = new Set(
-    [].concat(first, rest || []).flatMap((x) => getDefaultImportName(x) || []),
+    flatMap([].concat(first, rest || []), (x) => getDefaultImportName(x) || []),
   );
 
   // Bail if there are multiple different default import names – it's up to the
@@ -121,7 +124,7 @@ function getFix(first, rest, sourceCode, context) {
         isEmpty: !hasSpecifiers(node),
       };
     })
-    .filter(Boolean);
+    .filter((x) => !!x);
 
   const unnecessaryImports = restWithoutComments.filter((node) => !hasSpecifiers(node)
     && !hasNamespace(node)
@@ -131,11 +134,13 @@ function getFix(first, rest, sourceCode, context) {
   const shouldAddDefault = getDefaultImportName(first) == null && defaultImportNames.size === 1;
   const shouldAddSpecifiers = specifiers.length > 0;
   const shouldRemoveUnnecessary = unnecessaryImports.length > 0;
+  const preferInline = context.options[0] && context.options[0]['prefer-inline'];
 
   if (!(shouldAddDefault || shouldAddSpecifiers || shouldRemoveUnnecessary)) {
     return undefined;
   }
 
+  /** @type {import('eslint').Rule.ReportFixer} */
   return (fixer) => {
     const tokens = sourceCode.getTokens(first);
     const openBrace = tokens.find((token) => isPunctuator(token, '{'));
@@ -151,13 +156,14 @@ function getFix(first, rest, sourceCode, context) {
         .split(',')
         .map((x) => x.trim()),
       );
+    // snapshot of first import's original specifiers before reduce mutates firstExistingIdentifiers
+    const firstSpecifierNames = new Set(firstExistingIdentifiers);
 
     const [specifiersText] = specifiers.reduce(
       ([result, needsComma, existingIdentifiers], specifier) => {
         const isTypeSpecifier = specifier.importNode.importKind === 'type';
 
-        const preferInline = context.options[0] && context.options[0]['prefer-inline'];
-        // a user might set prefer-inline but not have a supporting TypeScript version.  Flow does not support inline types so this should fail in that case as well.
+        // a user might set prefer-inline but not have a supporting TypeScript version. Flow does not support inline types so this should fail in that case as well.
         if (preferInline && (!typescriptPkg || !semver.satisfies(typescriptPkg.version, '>= 4.5'))) {
           throw new Error('Your version of TypeScript does not support inline type imports.');
         }
@@ -183,7 +189,20 @@ function getFix(first, rest, sourceCode, context) {
       ['', !firstHasTrailingComma && !firstIsEmpty, firstExistingIdentifiers],
     );
 
+    /** @type {import('eslint').Rule.Fix[]} */
     const fixes = [];
+
+    if (shouldAddSpecifiers && preferInline && first.importKind === 'type') {
+      // `import type {a} from './foo'` → `import {type a} from './foo'`
+      const typeIdentifierToken = tokens.find((token) => token.type === 'Identifier' && token.value === 'type');
+      fixes.push(fixer.removeRange([typeIdentifierToken.range[0], typeIdentifierToken.range[1] + 1]));
+
+      tokens
+        .filter((token) => firstSpecifierNames.has(token.value))
+        .forEach((identifier) => {
+          fixes.push(fixer.replaceTextRange([identifier.range[0], identifier.range[1]], `type ${identifier.value}`));
+        });
+    }
 
     if (shouldAddDefault && openBrace == null && shouldAddSpecifiers) {
       // `import './foo'` → `import def, {...} from './foo'`
@@ -214,7 +233,7 @@ function getFix(first, rest, sourceCode, context) {
     }
 
     // Remove imports whose specifiers have been moved into the first import.
-    for (const specifier of specifiers) {
+    specifiers.forEach((specifier) => {
       const importNode = specifier.importNode;
       fixes.push(fixer.remove(importNode));
 
@@ -223,12 +242,12 @@ function getFix(first, rest, sourceCode, context) {
       if (charAfterImport === '\n') {
         fixes.push(fixer.removeRange(charAfterImportRange));
       }
-    }
+    });
 
     // Remove imports whose default import has been moved to the first import,
     // and side-effect-only imports that are unnecessary due to the first
     // import.
-    for (const node of unnecessaryImports) {
+    unnecessaryImports.forEach((node) => {
       fixes.push(fixer.remove(node));
 
       const charAfterImportRange = [node.range[1], node.range[1] + 1];
@@ -236,18 +255,19 @@ function getFix(first, rest, sourceCode, context) {
       if (charAfterImport === '\n') {
         fixes.push(fixer.removeRange(charAfterImportRange));
       }
-    }
+    });
 
     return fixes;
   };
 }
 
+/** @type {(imported: Map<string, import('estree').ImportDeclaration[]>, context: import('eslint').Rule.RuleContext) => void} */
 function checkImports(imported, context) {
   for (const [module, nodes] of imported.entries()) {
     if (nodes.length > 1) {
       const message = `'${module}' imported multiple times.`;
       const [first, ...rest] = nodes;
-      const sourceCode = context.getSourceCode();
+      const sourceCode = getSourceCode(context);
       const fix = getFix(first, rest, sourceCode, context);
 
       context.report({
@@ -256,16 +276,17 @@ function checkImports(imported, context) {
         fix, // Attach the autofix (if any) to the first import.
       });
 
-      for (const node of rest) {
+      rest.forEach((node) => {
         context.report({
           node: node.source,
           message,
         });
-      }
+      });
     }
   }
 }
 
+/** @type {import('eslint').Rule.RuleModule} */
 export default {
   meta: {
     type: 'problem',
@@ -291,10 +312,13 @@ export default {
     ],
   },
 
+  /** @param {import('eslint').Rule.RuleContext} context */
   create(context) {
+    /** @type {boolean} */
     // Prepare the resolver from options.
-    const considerQueryStringOption = context.options[0]
-      && context.options[0].considerQueryString;
+    const considerQueryStringOption = context.options[0] && context.options[0].considerQueryString;
+    /** @type {boolean} */
+    const preferInline = context.options[0] && context.options[0]['prefer-inline'];
     const defaultResolver = (sourcePath) => resolve(sourcePath, context) || sourcePath;
     const resolver = considerQueryStringOption ? (sourcePath) => {
       const parts = sourcePath.match(/^([^?]*)\?(.*)$/);
@@ -304,11 +328,14 @@ export default {
       return `${defaultResolver(parts[1])}?${parts[2]}`;
     } : defaultResolver;
 
+    /** @type {Map<unknown, { imported: Map<string, import('estree').ImportDeclaration[]>, nsImported: Map<string, import('estree').ImportDeclaration[]>, defaultTypesImported: Map<string, import('estree').ImportDeclaration[]>, namedTypesImported: Map<string, import('estree').ImportDeclaration[]>}>} */
     const moduleMaps = new Map();
 
+    /** @param {import('estree').ImportDeclaration} n */
+    /** @returns {typeof moduleMaps[keyof typeof moduleMaps]} */
     function getImportMap(n) {
       if (!moduleMaps.has(n.parent)) {
-        moduleMaps.set(n.parent, {
+        moduleMaps.set(n.parent, /** @type {typeof moduleMaps} */ {
           imported: new Map(),
           nsImported: new Map(),
           defaultTypesImported: new Map(),
@@ -316,7 +343,6 @@ export default {
         });
       }
       const map = moduleMaps.get(n.parent);
-      const preferInline = context.options[0] && context.options[0]['prefer-inline'];
       if (!preferInline && n.importKind === 'type') {
         return n.specifiers.length > 0 && n.specifiers[0].type === 'ImportDefaultSpecifier' ? map.defaultTypesImported : map.namedTypesImported;
       }
@@ -328,7 +354,9 @@ export default {
     }
 
     return {
+      /** @param {import('estree').ImportDeclaration} n */
       ImportDeclaration(n) {
+        /** @type {string} */
         // resolved path will cover aliased duplicates
         const resolvedPath = resolver(n.source.value);
         const importMap = getImportMap(n);

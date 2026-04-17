@@ -1,4 +1,6 @@
 import docsUrl from '../docsUrl.js';
+import values from 'object.values';
+import flat from 'array.prototype.flat';
 
 const meta = {
   type: 'suggestion',
@@ -20,7 +22,7 @@ const errors = {
  *
  * Example:
  *
- * `module.exports = {}` => ['module', 'exports']
+ * `export default {}` => ['module', 'exports']
  * `module.exports.property = true` => ['module', 'exports', 'property']
  *
  * @param     {Node}    node    AST Node (MemberExpression)
@@ -105,9 +107,8 @@ function create(context) {
       }
 
       // Report multiple `aggregated exports` from the same module (ES2015 modules)
-      Object.values(nodes.modules.sources)
-        .filter((nodesWithSource) => Array.isArray(nodesWithSource) && nodesWithSource.length > 1)
-        .flat()
+      flat(values(nodes.modules.sources)
+        .filter((nodesWithSource) => Array.isArray(nodesWithSource) && nodesWithSource.length > 1))
         .forEach((node) => {
           context.report({
             node,
@@ -126,9 +127,8 @@ function create(context) {
       }
 
       // Report multiple `aggregated type exports` from the same module (FLOW ES2015 modules)
-      Object.values(nodes.types.sources)
-        .filter((nodesWithSource) => Array.isArray(nodesWithSource) && nodesWithSource.length > 1)
-        .flat()
+      flat(values(nodes.types.sources)
+        .filter((nodesWithSource) => Array.isArray(nodesWithSource) && nodesWithSource.length > 1))
         .forEach((node) => {
           context.report({
             node,

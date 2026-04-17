@@ -1,5 +1,5 @@
-import importType from '../core/importType.js';
-import moduleVisitor from '../core/moduleVisitor.js';
+import importType from '../core/importType';
+import moduleVisitor from 'eslint-module-utils/moduleVisitor';
 import docsUrl from '../docsUrl.js';
 
 function reportIfMissing(context, node, allowed, name) {

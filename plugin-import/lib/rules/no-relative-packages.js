@@ -1,9 +1,10 @@
 import path from 'path';
-import readPkgUp from '../core/readPkgUp.js';
+import readPkgUp from 'eslint-module-utils/readPkgUp';
 
-import resolve from '../core/resolve.js';
-import moduleVisitor, { makeOptionsSchema } from '../core/moduleVisitor.js';
-import importType from '../core/importType.js';
+import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
+import resolve from 'eslint-module-utils/resolve';
+import moduleVisitor, { makeOptionsSchema } from 'eslint-module-utils/moduleVisitor';
+import importType from '../core/importType';
 import docsUrl from '../docsUrl.js';
 
 /** @param {string} filePath */
@@ -26,7 +27,7 @@ function checkImportForRelativePackage(context, importPath, node) {
   }
 
   const resolvedImport = resolve(importPath, context);
-  const resolvedContext = context.getPhysicalFilename ? context.getPhysicalFilename() : context.getFilename();
+  const resolvedContext = getPhysicalFilename(context);
 
   if (!resolvedImport || !resolvedContext) {
     return;

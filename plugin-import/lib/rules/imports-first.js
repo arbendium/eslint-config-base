@@ -1,6 +1,6 @@
 import docsUrl from '../docsUrl.js';
 
-import first from './first.js';
+const first = require('./first');
 
 const newMeta = {
   ...first.meta,

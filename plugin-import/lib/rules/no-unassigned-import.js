@@ -1,7 +1,8 @@
 import path from 'path';
-import { minimatch } from 'minimatch';
+import minimatch from 'minimatch';
+import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
 
-import isStaticRequire from '../core/staticRequire.js';
+import isStaticRequire from '../core/staticRequire';
 import docsUrl from '../docsUrl.js';
 
 function report(context, node) {
@@ -31,7 +32,7 @@ function testIsAllow(globs, filename, source) {
 
 function create(context) {
   const options = context.options[0] || {};
-  const filename = context.getPhysicalFilename ? context.getPhysicalFilename() : context.getFilename();
+  const filename = getPhysicalFilename(context);
   const isAllow = (source) => testIsAllow(options.allow, filename, source);
 
   return {

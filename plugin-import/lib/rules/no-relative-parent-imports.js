@@ -1,9 +1,10 @@
-import moduleVisitor, { makeOptionsSchema } from '../core/moduleVisitor.js';
-import docsUrl from '../docsUrl.js';
 import { basename, dirname, relative } from 'path';
-import resolve from '../core/resolve.js';
+import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
+import moduleVisitor, { makeOptionsSchema } from 'eslint-module-utils/moduleVisitor';
+import resolve from 'eslint-module-utils/resolve';
 
-import importType from '../core/importType.js';
+import importType from '../core/importType';
+import docsUrl from '../docsUrl.js';
 
 export default {
   meta: {
@@ -17,7 +18,7 @@ export default {
   },
 
   create: function noRelativePackages(context) {
-    const myPath = context.getPhysicalFilename ? context.getPhysicalFilename() : context.getFilename();
+    const myPath = getPhysicalFilename(context);
     if (myPath === '<text>') { return {}; } // can't check a non-file
 
     function checkSourceValue(sourceNode) {

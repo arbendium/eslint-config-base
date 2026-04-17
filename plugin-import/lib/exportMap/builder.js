@@ -4,13 +4,12 @@ import doctrine from 'doctrine';
 
 import debug from 'debug';
 
+import parse from 'eslint-module-utils/parse.js';
+import visit from 'eslint-module-utils/visit.js';
+import resolve from 'eslint-module-utils/resolve.js';
+import isIgnored, { hasValidExtension } from 'eslint-module-utils/ignore.js';
 import { hashObject } from 'eslint-module-utils/hash.js';
 import * as unambiguous from 'eslint-module-utils/unambiguous.js';
-
-import isIgnored, { hasValidExtension } from '../core/ignore.js';
-import parse from '../core/parse.js';
-import resolve from '../core/resolve.js';
-import visit from '../core/visit.js';
 import ExportMap from './index.js';
 import childContext from './childContext.js';
 import { isEsModuleInterop } from './typescript.js';
@@ -91,7 +90,11 @@ export default class ExportMapBuilder {
 
     exportMap.mtime = stats.mtime;
 
-    exportCache.set(cacheKey, exportMap);
+    // If the visitor keys were not populated, then we shouldn't save anything to the cache,
+    // since the parse results may not be reliable.
+    if (exportMap.visitorKeys) {
+      exportCache.set(cacheKey, exportMap);
+    }
     return exportMap;
   }
 

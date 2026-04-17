@@ -1,9 +1,27 @@
+import { getSourceCode } from 'eslint-module-utils/contextCompat';
 import docsUrl from '../docsUrl.js';
+
+/**
+ * @import { Rule, SourceCode } from 'eslint'
+ * @import {
+ *   ImportDeclaration,
+ *   ImportDefaultSpecifier,
+ *   ImportNamespaceSpecifier,
+ *   ImportSpecifier,
+ *   Node
+ * } from 'estree'
+ */
 
 function isComma(token) {
   return token.type === 'Punctuator' && token.value === ',';
 }
 
+/**
+ * @param {Rule.Fix[]} fixes
+ * @param {Rule.RuleFixer} fixer
+ * @param {SourceCode.SourceCode} sourceCode
+ * @param {Array<ImportSpecifier | ImportDefaultSpecifier | ImportNamespaceSpecifier>} specifiers
+ * */
 function removeSpecifiers(fixes, fixer, sourceCode, specifiers) {
   for (const specifier of specifiers) {
     // remove the trailing comma
@@ -15,6 +33,7 @@ function removeSpecifiers(fixes, fixer, sourceCode, specifiers) {
   }
 }
 
+/** @type {(node: Node, sourceCode: SourceCode, specifiers: (ImportSpecifier | ImportNamespaceSpecifier)[], kind: 'type' | 'typeof') => string} */
 function getImportText(
   node,
   sourceCode,
@@ -36,6 +55,7 @@ function getImportText(
   return `import ${kind} {${names.join(', ')}} from ${sourceString};`;
 }
 
+/** @type {Rule.RuleModule} */
 export default {
   meta: {
     type: 'suggestion',
@@ -55,7 +75,7 @@ export default {
   },
 
   create(context) {
-    const sourceCode = context.getSourceCode();
+    const sourceCode = getSourceCode(context);
 
     if (context.options[0] === 'prefer-inline') {
       return {
@@ -100,6 +120,7 @@ export default {
 
     // prefer-top-level
     return {
+      /** @param {ImportDeclaration} node */
       ImportDeclaration(node) {
         if (
           // already top-level is valid
@@ -118,9 +139,13 @@ export default {
           return;
         }
 
+        /** @type {typeof node.specifiers} */
         const typeSpecifiers = [];
+        /** @type {typeof node.specifiers} */
         const typeofSpecifiers = [];
+        /** @type {typeof node.specifiers} */
         const valueSpecifiers = [];
+        /** @type {typeof node.specifiers[number]} */
         let defaultSpecifier = null;
         for (const specifier of node.specifiers) {
           if (specifier.type === 'ImportDefaultSpecifier') {
@@ -142,6 +167,7 @@ export default {
         const newImports = `${typeImport}\n${typeofImport}`.trim();
 
         if (typeSpecifiers.length + typeofSpecifiers.length === node.specifiers.length) {
+          /** @type {('type' | 'typeof')[]} */
           // all specifiers have inline specifiers - so we replace the entire import
           const kind = [].concat(
             typeSpecifiers.length > 0 ? 'type' : [],
@@ -160,7 +186,7 @@ export default {
           });
         } else {
           // remove specific specifiers and insert new imports for them
-          for (const specifier of typeSpecifiers.concat(typeofSpecifiers)) {
+          typeSpecifiers.concat(typeofSpecifiers).forEach((specifier) => {
             context.report({
               node: specifier,
               message: 'Prefer using a top-level {{kind}}-only import instead of inline {{kind}} specifiers.',
@@ -168,6 +194,7 @@ export default {
                 kind: specifier.importKind,
               },
               fix(fixer) {
+                /** @type {Rule.Fix[]} */
                 const fixes = [];
 
                 // if there are no value specifiers, then the other report fixer will be called, not this one
@@ -213,7 +240,7 @@ export default {
                 );
               },
             });
-          }
+          });
         }
       },
     };

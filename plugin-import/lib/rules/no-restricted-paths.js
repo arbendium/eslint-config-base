@@ -1,13 +1,12 @@
 import path from 'path';
-
-import resolve from '../core/resolve.js';
-import moduleVisitor from '../core/moduleVisitor.js';
+import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
+import resolve from 'eslint-module-utils/resolve';
+import moduleVisitor from 'eslint-module-utils/moduleVisitor';
 import isGlob from 'is-glob';
-import { minimatch } from 'minimatch';
-import docsUrl from '../docsUrl.js';
-import importType from '../core/importType.js';
+import { Minimatch } from 'minimatch';
 
-const { Minimatch } = minimatch;
+import importType from '../core/importType';
+import docsUrl from '../docsUrl.js';
 
 const containsPath = (filepath, target) => {
   const relative = path.relative(target, filepath);
@@ -87,7 +86,7 @@ export default {
     const options = context.options[0] || {};
     const restrictedPaths = options.zones || [];
     const basePath = options.basePath || process.cwd();
-    const currentFilename = context.getPhysicalFilename ? context.getPhysicalFilename() : context.getFilename();
+    const currentFilename = getPhysicalFilename(context);
     const matchingZones = restrictedPaths.filter(
       (zone) => [].concat(zone.target)
         .map((target) => path.resolve(basePath, target))

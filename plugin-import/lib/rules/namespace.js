@@ -1,7 +1,7 @@
-import declaredScope from '../core/declaredScope.js';
-import ExportMapBuilder from '../exportMap/builder.js';
-import ExportMap from '../exportMap/index.js';
-import importDeclaration from '../importDeclaration.js';
+import declaredScope from 'eslint-module-utils/declaredScope';
+import ExportMapBuilder from '../exportMap/builder';
+import ExportMap from '../exportMap';
+import importDeclaration from '../importDeclaration';
 import docsUrl from '../docsUrl.js';
 
 function processBodyStatement(context, namespaces, declaration) {
@@ -87,7 +87,7 @@ export default {
 
       // same as above, but does not add names to local map
       ExportNamespaceSpecifier(namespace) {
-        const declaration = importDeclaration(context);
+        const declaration = importDeclaration(context, namespace);
 
         const imports = ExportMapBuilder.get(declaration.source.value, context);
         if (imports == null) { return null; }
@@ -110,7 +110,7 @@ export default {
       MemberExpression(dereference) {
         if (dereference.object.type !== 'Identifier') { return; }
         if (!namespaces.has(dereference.object.name)) { return; }
-        if (declaredScope(context, dereference.object.name) !== 'module') { return; }
+        if (declaredScope(context, dereference.object.name, dereference) !== 'module') { return; }
 
         if (dereference.parent.type === 'AssignmentExpression' && dereference.parent.left === dereference) {
           context.report(
@@ -158,7 +158,7 @@ export default {
         if (!namespaces.has(init.name)) { return; }
 
         // check for redefinition in intermediate scopes
-        if (declaredScope(context, init.name) !== 'module') { return; }
+        if (declaredScope(context, init.name, init) !== 'module') { return; }
 
         // DFS traverse child namespaces
         function testKey(pattern, namespace, path = [init.name]) {

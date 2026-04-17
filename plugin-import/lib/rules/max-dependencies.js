@@ -1,4 +1,4 @@
-import moduleVisitor from '../core/moduleVisitor.js';
+import moduleVisitor from 'eslint-module-utils/moduleVisitor';
 import docsUrl from '../docsUrl.js';
 
 const DEFAULT_MAX = 10;

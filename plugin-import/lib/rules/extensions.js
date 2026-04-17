@@ -1,8 +1,9 @@
 import path from 'path';
 
-import resolve from '../core/resolve.js';
-import { isBuiltIn, isExternalModule, isScoped } from '../core/importType.js';
-import moduleVisitor from '../core/moduleVisitor.js';
+import minimatch from 'minimatch';
+import resolve from 'eslint-module-utils/resolve';
+import { isBuiltIn, isExternalModule, isScoped } from '../core/importType';
+import moduleVisitor from 'eslint-module-utils/moduleVisitor';
 import docsUrl from '../docsUrl.js';
 
 const enumValues = { enum: ['always', 'ignorePackages', 'never'] };
@@ -14,7 +15,28 @@ const properties = {
   type: 'object',
   properties: {
     pattern: patternProperties,
+    checkTypeImports: { type: 'boolean' },
     ignorePackages: { type: 'boolean' },
+    pathGroupOverrides: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          pattern: {
+            type: 'string',
+          },
+          patternOptions: {
+            type: 'object',
+          },
+          action: {
+            type: 'string',
+            enum: ['enforce', 'ignore'],
+          },
+        },
+        additionalProperties: false,
+        required: ['pattern', 'action'],
+      },
+    },
   },
 };
 
@@ -35,7 +57,7 @@ function buildProperties(context) {
     }
 
     // If this is not the new structure, transfer all props to result.pattern
-    if (obj.pattern === undefined && obj.ignorePackages === undefined) {
+    if (obj.pattern === undefined && obj.ignorePackages === undefined && obj.checkTypeImports === undefined) {
       Object.assign(result.pattern, obj);
       return;
     }
@@ -48,6 +70,14 @@ function buildProperties(context) {
     // If ignorePackages is provided, transfer it to result
     if (obj.ignorePackages !== undefined) {
       result.ignorePackages = obj.ignorePackages;
+    }
+
+    if (obj.checkTypeImports !== undefined) {
+      result.checkTypeImports = obj.checkTypeImports;
+    }
+
+    if (obj.pathGroupOverrides !== undefined) {
+      result.pathGroupOverrides = obj.pathGroupOverrides;
     }
   });
 
@@ -138,20 +168,39 @@ export default {
       return false;
     }
 
+    function computeOverrideAction(pathGroupOverrides, path) {
+      for (let i = 0, l = pathGroupOverrides.length; i < l; i++) {
+        const { pattern, patternOptions, action } = pathGroupOverrides[i];
+        if (minimatch(path, pattern, patternOptions || { nocomment: true })) {
+          return action;
+        }
+      }
+    }
+
     function checkFileExtension(source, node) {
       // bail if the declaration doesn't have a source, e.g. "export { foo };", or if it's only partially typed like in an editor
       if (!source || !source.value) { return; }
 
       const importPathWithQueryString = source.value;
 
+      // If not undefined, the user decided if rules are enforced on this import
+      const overrideAction = computeOverrideAction(
+        props.pathGroupOverrides || [],
+        importPathWithQueryString,
+      );
+
+      if (overrideAction === 'ignore') {
+        return;
+      }
+
       // don't enforce anything on builtins
-      if (isBuiltIn(importPathWithQueryString, context.settings)) { return; }
+      if (!overrideAction && isBuiltIn(importPathWithQueryString, context.settings)) { return; }
 
       const importPath = importPathWithQueryString.replace(/\?(.*)$/, '');
 
       // don't enforce in root external packages as they may have names with `.js`.
       // Like `import Decimal from decimal.js`)
-      if (isExternalRootModule(importPath)) { return; }
+      if (!overrideAction && isExternalRootModule(importPath)) { return; }
 
       const resolvedPath = resolve(importPath, context);
 
@@ -168,8 +217,8 @@ export default {
 
       if (!extension || !importPath.endsWith(`.${extension}`)) {
         // ignore type-only imports and exports
-        if (node.importKind === 'type' || node.exportKind === 'type') { return; }
-        const extensionRequired = isUseOfExtensionRequired(extension, isPackage);
+        if (!props.checkTypeImports && (node.importKind === 'type' || node.exportKind === 'type')) { return; }
+        const extensionRequired = isUseOfExtensionRequired(extension, !overrideAction && isPackage);
         const extensionForbidden = isUseOfExtensionForbidden(extension);
         if (extensionRequired && !extensionForbidden) {
           context.report({

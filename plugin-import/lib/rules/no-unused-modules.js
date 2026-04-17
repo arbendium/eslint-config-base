@@ -4,64 +4,165 @@
  * @author René Fermann
  */
 
-import module from 'node:module';
-import { getFileExtensions } from '../core/ignore.js';
-import resolve from '../core/resolve.js';
-import visit from '../core/visit.js';
+import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
+import { getFileExtensions } from 'eslint-module-utils/ignore';
+import resolve from 'eslint-module-utils/resolve';
+import visit from 'eslint-module-utils/visit';
 import { dirname, join } from 'path';
-import readPkgUp from '../core/readPkgUp.js';
+import readPkgUp from 'eslint-module-utils/readPkgUp';
+import values from 'object.values';
+import includes from 'array-includes';
+import flatMap from 'array.prototype.flatmap';
 
-import ExportMapBuilder from '../exportMap/builder.js';
-import recursivePatternCapture from '../exportMap/patternCapture.js';
+import ExportMapBuilder from '../exportMap/builder';
+import recursivePatternCapture from '../exportMap/patternCapture';
 import docsUrl from '../docsUrl.js';
 
-const require = module.createRequire(import.meta.url);
+/**
+ * Attempt to load the internal `FileEnumerator` class, which has existed in a couple
+ * of different places, depending on the version of `eslint`.  Try requiring it from both
+ * locations.
+ * @returns Returns the `FileEnumerator` class if its requirable, otherwise `undefined`.
+ */
+function requireFileEnumerator() {
+  let FileEnumerator;
 
-let FileEnumerator;
-let listFilesToProcess;
-
-try {
-  ({ FileEnumerator } = require('eslint/use-at-your-own-risk'));
-} catch (e) {
+  // Try getting it from the eslint private / deprecated api
   try {
-    // has been moved to eslint/lib/cli-engine/file-enumerator in version 6
-    ({ FileEnumerator } = require('eslint/lib/cli-engine/file-enumerator'));
+    ({ FileEnumerator } = require('eslint/use-at-your-own-risk'));
   } catch (e) {
-    try {
-      // eslint/lib/util/glob-util has been moved to eslint/lib/util/glob-utils with version 5.3
-      const { listFilesToProcess: originalListFilesToProcess } = require('eslint/lib/util/glob-utils');
-
-      // Prevent passing invalid options (extensions array) to old versions of the function.
-      // https://github.com/eslint/eslint/blob/v5.16.0/lib/util/glob-utils.js#L178-L280
-      // https://github.com/eslint/eslint/blob/v5.2.0/lib/util/glob-util.js#L174-L269
-      listFilesToProcess = function (src, extensions) {
-        return originalListFilesToProcess(src, {
-          extensions,
-        });
-      };
-    } catch (e) {
-      const { listFilesToProcess: originalListFilesToProcess } = require('eslint/lib/util/glob-util');
-
-      listFilesToProcess = function (src, extensions) {
-        const patterns = src.concat(src.flatMap((pattern) => extensions.map((extension) => (/\*\*|\*\./).test(pattern) ? pattern : `${pattern}/**/*${extension}`)));
-
-        return originalListFilesToProcess(patterns);
-      };
+    // Absorb this if it's MODULE_NOT_FOUND
+    if (e.code !== 'MODULE_NOT_FOUND') {
+      throw e;
     }
+
+    // If not there, then try getting it from eslint/lib/cli-engine/file-enumerator (moved there in v6)
+    try {
+      ({ FileEnumerator } = require('eslint/lib/cli-engine/file-enumerator'));
+    } catch (e) {
+      // Absorb this if it's MODULE_NOT_FOUND
+      if (e.code !== 'MODULE_NOT_FOUND') {
+        throw e;
+      }
+    }
+  }
+  return FileEnumerator;
+}
+
+/**
+ * Given a FileEnumerator class, instantiate and load the list of files.
+ * @param FileEnumerator the `FileEnumerator` class from `eslint`'s internal api
+ * @param {string} src path to the src root
+ * @param {string[]} extensions list of supported extensions
+ * @returns {{ filename: string, ignored: boolean }[]} list of files to operate on
+ */
+function listFilesUsingFileEnumerator(FileEnumerator, src, extensions) {
+  // We need to know whether this is being run with flat config in order to
+  // determine how to report errors if FileEnumerator throws due to a lack of eslintrc.
+
+  const { ESLINT_USE_FLAT_CONFIG } = process.env;
+
+  // This condition is sufficient to test in v8, since the environment variable is necessary to turn on flat config
+  let isUsingFlatConfig = ESLINT_USE_FLAT_CONFIG && process.env.ESLINT_USE_FLAT_CONFIG !== 'false';
+
+  // In the case of using v9, we can check the `shouldUseFlatConfig` function
+  // If this function is present, then we assume it's v9
+  try {
+    const { shouldUseFlatConfig } = require('eslint/use-at-your-own-risk');
+    isUsingFlatConfig = shouldUseFlatConfig && ESLINT_USE_FLAT_CONFIG !== 'false';
+  } catch (_) {
+    // We don't want to throw here, since we only want to update the
+    // boolean if the function is available.
+  }
+
+  const enumerator = new FileEnumerator({
+    extensions,
+  });
+
+  try {
+    return Array.from(
+      enumerator.iterateFiles(src),
+      ({ filePath, ignored }) => ({ filename: filePath, ignored }),
+    );
+  } catch (e) {
+    // If we're using flat config, and FileEnumerator throws due to a lack of eslintrc,
+    // then we want to throw an error so that the user knows about this rule's reliance on
+    // the legacy config.
+    if (
+      isUsingFlatConfig
+      && e.message.includes('No ESLint configuration found')
+    ) {
+      throw new Error(`
+Due to the exclusion of certain internal ESLint APIs when using flat config,
+the import/no-unused-modules rule requires an .eslintrc file to know which
+files to ignore (even when using flat config).
+The .eslintrc file only needs to contain "ignorePatterns", or can be empty if
+you do not want to ignore any files.
+
+See https://github.com/import-js/eslint-plugin-import/issues/3079
+for additional context.
+`);
+    }
+    // If this isn't the case, then we'll just let the error bubble up
+    throw e;
   }
 }
 
-if (FileEnumerator) {
-  listFilesToProcess = function (src, extensions) {
-    const e = new FileEnumerator({
+/**
+ * Attempt to require old versions of the file enumeration capability from v6 `eslint` and earlier, and use
+ * those functions to provide the list of files to operate on
+ * @param {string} src path to the src root
+ * @param {string[]} extensions list of supported extensions
+ * @returns {string[]} list of files to operate on
+ */
+function listFilesWithLegacyFunctions(src, extensions) {
+  try {
+    // eslint/lib/util/glob-util has been moved to eslint/lib/util/glob-utils with version 5.3
+    const { listFilesToProcess: originalListFilesToProcess } = require('eslint/lib/util/glob-utils');
+    // Prevent passing invalid options (extensions array) to old versions of the function.
+    // https://github.com/eslint/eslint/blob/v5.16.0/lib/util/glob-utils.js#L178-L280
+    // https://github.com/eslint/eslint/blob/v5.2.0/lib/util/glob-util.js#L174-L269
+
+    return originalListFilesToProcess(src, {
       extensions,
     });
+  } catch (e) {
+    // Absorb this if it's MODULE_NOT_FOUND
+    if (e.code !== 'MODULE_NOT_FOUND') {
+      throw e;
+    }
 
-    return Array.from(e.iterateFiles(src), ({ filePath, ignored }) => ({
-      ignored,
-      filename: filePath,
-    }));
-  };
+    // Last place to try (pre v5.3)
+    const {
+      listFilesToProcess: originalListFilesToProcess,
+    } = require('eslint/lib/util/glob-util');
+    const patterns = src.concat(
+      flatMap(
+        src,
+        (pattern) => extensions.map((extension) => (/\*\*|\*\./).test(pattern) ? pattern : `${pattern}/**/*${extension}`),
+      ),
+    );
+
+    return originalListFilesToProcess(patterns);
+  }
+}
+
+/**
+ * Given a src pattern and list of supported extensions, return a list of files to process
+ * with this rule.
+ * @param {string} src - file, directory, or glob pattern of files to act on
+ * @param {string[]} extensions - list of supported file extensions
+ * @returns {string[] | { filename: string, ignored: boolean }[]} the list of files that this rule will evaluate.
+ */
+function listFilesToProcess(src, extensions) {
+  const FileEnumerator = requireFileEnumerator();
+
+  // If we got the FileEnumerator, then let's go with that
+  if (FileEnumerator) {
+    return listFilesUsingFileEnumerator(FileEnumerator, src, extensions);
+  }
+  // If not, then we can try even older versions of this capability (listFilesToProcess)
+  return listFilesWithLegacyFunctions(src, extensions);
 }
 
 const EXPORT_DEFAULT_DECLARATION = 'ExportDefaultDeclaration';
@@ -83,28 +184,30 @@ const DEFAULT = 'default';
 
 function forEachDeclarationIdentifier(declaration, cb) {
   if (declaration) {
+    const isTypeDeclaration = declaration.type === TS_INTERFACE_DECLARATION
+      || declaration.type === TS_TYPE_ALIAS_DECLARATION
+      || declaration.type === TS_ENUM_DECLARATION;
+
     if (
       declaration.type === FUNCTION_DECLARATION
       || declaration.type === CLASS_DECLARATION
-      || declaration.type === TS_INTERFACE_DECLARATION
-      || declaration.type === TS_TYPE_ALIAS_DECLARATION
-      || declaration.type === TS_ENUM_DECLARATION
+      || isTypeDeclaration
     ) {
-      cb(declaration.id.name);
+      cb(declaration.id.name, isTypeDeclaration);
     } else if (declaration.type === VARIABLE_DECLARATION) {
       declaration.declarations.forEach(({ id }) => {
         if (id.type === OBJECT_PATTERN) {
           recursivePatternCapture(id, (pattern) => {
             if (pattern.type === IDENTIFIER) {
-              cb(pattern.name);
+              cb(pattern.name, false);
             }
           });
         } else if (id.type === ARRAY_PATTERN) {
           id.elements.forEach(({ name }) => {
-            cb(name);
+            cb(name, false);
           });
         } else {
-          cb(id.name);
+          cb(id.name, false);
         }
       });
     }
@@ -161,6 +264,7 @@ const exportList = new Map();
 
 const visitorKeyMap = new Map();
 
+/** @type {Set<string>} */
 const ignoredFiles = new Set();
 const filesOutsideSrc = new Set();
 
@@ -170,22 +274,30 @@ const isNodeModule = (path) => (/\/(node_modules)\//).test(path);
  * read all files matching the patterns in src and ignoreExports
  *
  * return all files matching src pattern, which are not matching the ignoreExports pattern
+ * @type {(src: string, ignoreExports: string, context: import('eslint').Rule.RuleContext) => Set<string>}
  */
-const resolveFiles = (src, ignoreExports, context) => {
+function resolveFiles(src, ignoreExports, context) {
   const extensions = Array.from(getFileExtensions(context.settings));
 
   const srcFileList = listFilesToProcess(src, extensions);
 
   // prepare list of ignored files
   const ignoredFilesList = listFilesToProcess(ignoreExports, extensions);
-  ignoredFilesList.forEach(({ filename }) => ignoredFiles.add(filename));
+
+  // The modern api will return a list of file paths, rather than an object
+  if (ignoredFilesList.length && typeof ignoredFilesList[0] === 'string') {
+    ignoredFilesList.forEach((filename) => ignoredFiles.add(filename));
+  } else {
+    ignoredFilesList.forEach(({ filename }) => ignoredFiles.add(filename));
+  }
 
   // prepare list of source files, don't consider files from node_modules
+  const resolvedFiles = srcFileList.length && typeof srcFileList[0] === 'string'
+    ? srcFileList.filter((filePath) => !isNodeModule(filePath))
+    : flatMap(srcFileList, ({ filename }) => isNodeModule(filename) ? [] : filename);
 
-  return new Set(
-    srcFileList.flatMap(({ filename }) => isNodeModule(filename) ? [] : filename),
-  );
-};
+  return new Set(resolvedFiles);
+}
 
 /**
  * parse all source files and build up 2 maps containing the existing imports and exports
@@ -224,7 +336,7 @@ const prepareImportsAndExports = (srcFiles, context) => {
         } else {
           exports.set(key, { whereUsed: new Set() });
         }
-        const reexport =  value.getImport();
+        const reexport = value.getImport();
         if (!reexport) {
           return;
         }
@@ -327,6 +439,7 @@ const getSrc = (src) => {
  * prepare the lists of existing imports and exports - should only be executed once at
  * the start of a new eslint run
  */
+/** @type {Set<string>} */
 let srcFiles;
 let lastPrepareKey;
 const doPreparation = (src, ignoreExports, context) => {
@@ -365,9 +478,9 @@ const fileIsInPkg = (file) => {
   };
 
   const checkPkgFieldObject = (pkgField) => {
-    const pkgFieldFiles = Object.values(pkgField).flatMap((value) => typeof value === 'boolean' ? [] : join(basePath, value));
+    const pkgFieldFiles = flatMap(values(pkgField), (value) => typeof value === 'boolean' ? [] : join(basePath, value));
 
-    if (pkgFieldFiles.includes(file)) {
+    if (includes(pkgFieldFiles, file)) {
       return true;
     }
   };
@@ -443,6 +556,10 @@ export default {
           description: 'report exports without any usage',
           type: 'boolean',
         },
+        ignoreUnusedTypeExports: {
+          description: 'ignore type exports without any usage',
+          type: 'boolean',
+        },
       },
       anyOf: [
         {
@@ -470,13 +587,14 @@ export default {
       ignoreExports = [],
       missingExports,
       unusedExports,
+      ignoreUnusedTypeExports,
     } = context.options[0] || {};
 
     if (unusedExports) {
       doPreparation(src, ignoreExports, context);
     }
 
-    const file = context.getPhysicalFilename ? context.getPhysicalFilename() : context.getFilename();
+    const file = getPhysicalFilename(context);
 
     const checkExportPresence = (node) => {
       if (!missingExports) {
@@ -502,8 +620,12 @@ export default {
       exportCount.set(IMPORT_NAMESPACE_SPECIFIER, namespaceImports);
     };
 
-    const checkUsage = (node, exportedValue) => {
+    const checkUsage = (node, exportedValue, isTypeExport) => {
       if (!unusedExports) {
+        return;
+      }
+
+      if (isTypeExport && ignoreUnusedTypeExports) {
         return;
       }
 
@@ -529,6 +651,10 @@ export default {
       }
 
       exports = exportList.get(file);
+
+      if (!exports) {
+        console.error(`file \`${file}\` has no exports. Please update to the latest, and if it still happens, report this on https://github.com/import-js/eslint-plugin-import/issues/2866!`);
+      }
 
       // special case: export * from
       const exportAll = exports.get(EXPORT_ALL_DECLARATION);
@@ -931,14 +1057,14 @@ export default {
         checkExportPresence(node);
       },
       ExportDefaultDeclaration(node) {
-        checkUsage(node, IMPORT_DEFAULT_SPECIFIER);
+        checkUsage(node, IMPORT_DEFAULT_SPECIFIER, false);
       },
       ExportNamedDeclaration(node) {
         node.specifiers.forEach((specifier) => {
-          checkUsage(specifier, specifier.exported.name || specifier.exported.value);
+          checkUsage(specifier, specifier.exported.name || specifier.exported.value, false);
         });
-        forEachDeclarationIdentifier(node.declaration, (name) => {
-          checkUsage(node, name);
+        forEachDeclarationIdentifier(node.declaration, (name, isTypeExport) => {
+          checkUsage(node, name, isTypeExport);
         });
       },
     };

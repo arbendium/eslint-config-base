@@ -1,5 +1,5 @@
-import childContext from './childContext.js';
-import { RemotePath } from './remotePath.js';
+import childContext from './childContext';
+import { RemotePath } from './remotePath';
 
 export default class Namespace {
   constructor(

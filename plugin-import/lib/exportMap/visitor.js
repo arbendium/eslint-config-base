@@ -1,10 +1,11 @@
+import includes from 'array-includes';
 import { SourceCode } from 'eslint';
-import { availableDocStyleParsers, captureDoc } from './doc.js';
-import Namespace from './namespace.js';
-import processSpecifier from './specifier.js';
-import { captureDependency, captureDependencyWithSpecifiers } from './captureDependency.js';
-import recursivePatternCapture from './patternCapture.js';
-import { RemotePath } from './remotePath.js';
+import { availableDocStyleParsers, captureDoc } from './doc';
+import Namespace from './namespace';
+import processSpecifier from './specifier';
+import { captureDependency, captureDependencyWithSpecifiers } from './captureDependency';
+import recursivePatternCapture from './patternCapture';
+import { RemotePath } from './remotePath';
 
 /**
  * sometimes legacy support isn't _that_ hard... right?
@@ -120,7 +121,7 @@ export default class ImportExportVisitorBuilder {
       'TSAbstractClassDeclaration',
       'TSModuleDeclaration',
     ];
-    const exportedDecls = this.ast.body.filter(({ type, id, declarations }) => declTypes.includes(type) && (
+    const exportedDecls = this.ast.body.filter(({ type, id, declarations }) => includes(declTypes, type) && (
       id && id.name === exportedName || declarations && declarations.find((d) => d.id.name === exportedName)
     ));
     if (exportedDecls.length === 0) {

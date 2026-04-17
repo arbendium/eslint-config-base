@@ -6,6 +6,11 @@
 import { isModule } from 'eslint-module-utils/unambiguous.js';
 import docsUrl from '../docsUrl.js';
 
+/**
+ * @import { Rule } from 'eslint'
+ */
+
+/** @type {Rule.RuleModule} */
 export default {
   meta: {
     type: 'suggestion',
@@ -19,7 +24,7 @@ export default {
 
   create(context) {
     // ignore non-modules
-    if (context.parserOptions.sourceType !== 'module') {
+    if (context.languageOptions.sourceType !== 'module') {
       return {};
     }
 

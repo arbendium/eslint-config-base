@@ -3,9 +3,9 @@
  * @author Ben Mosher
  */
 
-import resolve, { CASE_SENSITIVE_FS, fileExistsWithCaseSync } from '../core/resolve.js';
-import ModuleCache from '../core/ModuleCache.js';
-import moduleVisitor, { makeOptionsSchema } from '../core/moduleVisitor.js';
+import resolve, { CASE_SENSITIVE_FS, fileExistsWithCaseSync } from 'eslint-module-utils/resolve';
+import ModuleCache from 'eslint-module-utils/ModuleCache';
+import moduleVisitor, { makeOptionsSchema } from 'eslint-module-utils/moduleVisitor';
 import docsUrl from '../docsUrl.js';
 
 export default {
