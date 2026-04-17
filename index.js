@@ -1,6 +1,6 @@
-import * as pluginImport from 'eslint-plugin-import';
 import globals from 'globals';
 import pluginStylistic from '@stylistic/eslint-plugin';
+import * as pluginImport from './plugin-import/lib/index.js';
 
 /**
  * @type {import("eslint").Linter.Config[]}
