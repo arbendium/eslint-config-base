@@ -5,6 +5,7 @@
   "repository": "github:arbendium/eslint-config-base",
   "type": "module",
   "files": [
+    "plugin-import",
     "index.js",
     "index.d.ts"
   ],
@@ -15,13 +16,20 @@
   },
   "license": "ISC",
   "dependencies": {
+    "@rtsao/scc": "^1.1.0",
     "@stylistic/eslint-plugin": "^5.10.0",
+    "doctrine": "^3.0.0",
     "eslint-import-resolver-node": "^0.4.0",
-    "eslint-plugin-import": "^2.32.0",
-    "globals": "^17.6.0"
+    "eslint-module-utils": "^2.13.0",
+    "globals": "^17.6.0",
+    "is-core-module": "^2.16.2",
+    "is-glob": "^4.0.3",
+    "minimatch": "^10.2.5",
+    "semver": "^7.8.1",
+    "tsconfig-paths": "^4.2.0"
   },
   "peerDependencies": {
-    "eslint": "^9.17.0"
+    "eslint": "^10"
   },
   "devDependencies": {
     "typescript": "^6.0.3"
