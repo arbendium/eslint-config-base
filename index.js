@@ -226,7 +226,7 @@ export default [
 			'no-var': 'error',
 			'no-void': 'error',
 			'no-with': 'error',
-			'object-shorthand': ['error', 'always'],
+			'object-shorthand': ['error', 'always', { avoidExplicitReturnArrows: true }],
 			'one-var': ['error', 'never'],
 			'operator-assignment': ['error', 'always'],
 			'prefer-arrow-callback': ['error', { allowNamedFunctions: false, allowUnboundThis: true }],
