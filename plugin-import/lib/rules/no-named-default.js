@@ -1,6 +1,6 @@
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -14,7 +14,7 @@ export default {
   create(context) {
     return {
       ImportDeclaration(node) {
-        node.specifiers.forEach(function (im) {
+        node.specifiers.forEach(im => {
           if (im.importKind === 'type' || im.importKind === 'typeof') {
             return;
           }
@@ -22,7 +22,8 @@ export default {
           if (im.type === 'ImportSpecifier' && (im.imported.name || im.imported.value) === 'default') {
             context.report({
               node: im.local,
-              message: `Use default import syntax to import '${im.local.name}'.` });
+              message: `Use default import syntax to import '${im.local.name}'.`,
+            });
           }
         });
       },

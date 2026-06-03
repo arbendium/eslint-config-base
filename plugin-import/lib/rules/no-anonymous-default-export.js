@@ -3,7 +3,10 @@
  * @author Duncan Beevers
  */
 
-import docsUrl from '../docsUrl.js';
+import hasOwn from 'hasown';
+import values from 'object.values';
+import fromEntries from 'object.fromentries';
+import docsUrl from '../docsUrl';
 
 const defs = {
   ArrayExpression: {
@@ -26,13 +29,13 @@ const defs = {
     option: 'allowAnonymousClass',
     description: 'If `false`, will report default export of an anonymous class',
     message: 'Unexpected default export of anonymous class',
-    forbid: (node) => !node.declaration.id,
+    forbid: node => !node.declaration.id,
   },
   FunctionDeclaration: {
     option: 'allowAnonymousFunction',
     description: 'If `false`, will report default export of an anonymous function',
     message: 'Unexpected default export of anonymous function',
-    forbid: (node) => !node.declaration.id,
+    forbid: node => !node.declaration.id,
   },
   Literal: {
     option: 'allowLiteral',
@@ -56,14 +59,14 @@ const defs = {
   },
 };
 
-const schemaProperties = Object.fromEntries(Object.values(defs).map((def) => [def.option, {
+const schemaProperties = fromEntries(values(defs).map(def => [def.option, {
   description: def.description,
   type: 'boolean',
 }]));
 
-const defaults = Object.fromEntries(Object.values(defs).map((def) => [def.option, 'default' in def ? def.default : false]));
+const defaults = fromEntries(values(defs).map(def => [def.option, hasOwn(def, 'default') ? def.default : false]));
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {

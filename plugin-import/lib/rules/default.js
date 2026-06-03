@@ -1,7 +1,7 @@
-import ExportMapBuilder from '../exportMap/builder.js';
-import docsUrl from '../docsUrl.js';
+import ExportMapBuilder from '../exportMap/builder';
+import docsUrl from '../docsUrl';
 
-export default {
+module.exports = {
   meta: {
     type: 'problem',
     docs: {
@@ -15,12 +15,18 @@ export default {
   create(context) {
     function checkDefault(specifierType, node) {
       const defaultSpecifier = node.specifiers.find(
-        (specifier) => specifier.type === specifierType,
+        specifier => specifier.type === specifierType,
       );
 
-      if (!defaultSpecifier) { return; }
+      if (!defaultSpecifier) {
+        return;
+      }
+
       const imports = ExportMapBuilder.get(node.source.value, context);
-      if (imports == null) { return; }
+
+      if (imports == null) {
+        return;
+      }
 
       if (imports.errors.length) {
         imports.reportErrors(context, node);

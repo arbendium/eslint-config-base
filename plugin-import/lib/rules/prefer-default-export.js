@@ -1,10 +1,13 @@
-'use strict';
-
 import docsUrl from '../docsUrl.js';
 
 const SINGLE_EXPORT_ERROR_MESSAGE = 'Prefer default export on a file with single export.';
 const ANY_EXPORT_ERROR_MESSAGE = 'Prefer default export to be present on every file that has export.';
 
+/**
+ * @import { Rule } from 'eslint'
+ */
+
+/** @type {Rule.RuleModule} */
 export default {
   meta: {
     type: 'suggestion',
@@ -33,18 +36,19 @@ export default {
     let hasTypeExport = false;
     let namedExportNode = null;
     // get options. by default we look into files with single export
-    const { target = 'single' } =  context.options[0] || {};
+    const { target = 'single' } = context.options[0] || {};
+
     function captureDeclaration(identifierOrPattern) {
       if (identifierOrPattern && identifierOrPattern.type === 'ObjectPattern') {
         // recursively capture
         identifierOrPattern.properties
-          .forEach(function (property) {
+          .forEach(property => {
             captureDeclaration(property.value);
           });
       } else if (identifierOrPattern && identifierOrPattern.type === 'ArrayPattern') {
         identifierOrPattern.elements
           .forEach(captureDeclaration);
-      } else  {
+      } else {
       // assume it's a single standard identifier
         specifierExportCount++;
       }
@@ -66,7 +70,9 @@ export default {
 
       ExportNamedDeclaration(node) {
         // if there are specifiers, node.declaration should be null
-        if (!node.declaration) { return; }
+        if (!node.declaration) {
+          return;
+        }
 
         const { type } = node.declaration;
 
@@ -78,11 +84,12 @@ export default {
         ) {
           specifierExportCount++;
           hasTypeExport = true;
+
           return;
         }
 
         if (node.declaration.declarations) {
-          node.declaration.declarations.forEach(function (declaration) {
+          node.declaration.declarations.forEach(declaration => {
             captureDeclaration(declaration.id);
           });
         } else {
@@ -105,6 +112,7 @@ export default {
         if (hasDefaultExport || hasStarExport || hasTypeExport) {
           return;
         }
+
         if (target === 'single' && specifierExportCount === 1) {
           context.report(namedExportNode, SINGLE_EXPORT_ERROR_MESSAGE);
         } else if (target === 'any' && specifierExportCount > 0) {

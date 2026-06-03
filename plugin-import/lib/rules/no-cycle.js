@@ -3,19 +3,21 @@
  * @author Ben Mosher
  */
 
-import resolve from '../core/resolve.js';
-import ExportMapBuilder from '../exportMap/builder.js';
-import { isExternalModule } from '../core/importType.js';
-import moduleVisitor, { makeOptionsSchema } from '../core/moduleVisitor.js';
-import docsUrl from '../docsUrl.js';
+import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
+import moduleVisitor, { makeOptionsSchema } from 'eslint-module-utils/moduleVisitor';
+import resolve from 'eslint-module-utils/resolve';
+import ExportMapBuilder from '../exportMap/builder';
+import StronglyConnectedComponentsBuilder from '../scc';
+import { isExternalModule } from '../core/importType';
+import docsUrl from '../docsUrl';
 
 const traversed = new Set();
 
 function routeString(route) {
-  return route.map((s) => `${s.value}:${s.loc.start.line}`).join('=>');
+  return route.map(s => `${s.value}:${s.loc.start.line}`).join('=>');
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -47,25 +49,36 @@ export default {
         type: 'boolean',
         default: false,
       },
+      disableScc: {
+        description: 'When true, don\'t calculate a strongly-connected-components graph. SCC is used to reduce the time-complexity of cycle detection, but adds overhead.',
+        type: 'boolean',
+        default: false,
+      },
     })],
   },
 
   create(context) {
-    const myPath = context.getPhysicalFilename ? context.getPhysicalFilename() : context.getFilename();
-    if (myPath === '<text>') { return {}; } // can't cycle-check a non-file
+    const myPath = getPhysicalFilename(context);
+
+    if (myPath === '<text>') {
+      return {};
+    } // can't cycle-check a non-file
 
     const options = context.options[0] || {};
     const maxDepth = typeof options.maxDepth === 'number' ? options.maxDepth : Infinity;
-    const ignoreModule = (name) => options.ignoreExternal && isExternalModule(
+    const ignoreModule = (name, moduleSystem) => options.ignoreExternal && isExternalModule(
       name,
-      resolve(name, context),
+      resolve(name, context, moduleSystem),
       context,
     );
 
-    function checkSourceValue(sourceNode, importer) {
-      if (ignoreModule(sourceNode.value)) {
+    const scc = options.disableScc ? {} : StronglyConnectedComponentsBuilder.get(myPath, context);
+
+    function checkSourceValue(sourceNode, importer, moduleSystem) {
+      if (ignoreModule(sourceNode.value, moduleSystem)) {
         return; // ignore external modules
       }
+
       if (
         options.allowUnsafeDynamicCyclicDependency && (
           // Ignore `import()`
@@ -91,31 +104,59 @@ export default {
       const imported = ExportMapBuilder.get(sourceNode.value, context);
 
       if (imported == null) {
-        return;  // no-unresolved territory
+        return; // no-unresolved territory
       }
 
       if (imported.path === myPath) {
-        return;  // no-self-import territory
+        return; // no-self-import territory
+      }
+
+      /* If we're in the same Strongly Connected Component,
+       * Then there exists a path from each node in the SCC to every other node in the SCC,
+       * Then there exists at least one path from them to us and from us to them,
+       * Then we have a cycle between us.
+       */
+      const hasDependencyCycle = options.disableScc || scc[myPath] === scc[imported.path];
+
+      if (!hasDependencyCycle) {
+        return;
       }
 
       const untraversed = [{ mget: () => imported, route: [] }];
+
       function detectCycle({ mget, route }) {
         const m = mget();
-        if (m == null) { return; }
-        if (traversed.has(m.path)) { return; }
+
+        if (m == null) {
+          return;
+        }
+
+        if (traversed.has(m.path)) {
+          return;
+        }
+
         traversed.add(m.path);
 
         for (const [path, { getter, declarations }] of m.imports) {
-          if (traversed.has(path)) { continue; }
+          // If we're in different SCCs, we can't have a circular dependency
+          if (!options.disableScc && scc[myPath] !== scc[path]) {
+            continue;
+          }
+
+          if (traversed.has(path)) {
+            continue;
+          }
+
           const toTraverse = [...declarations].filter(({ source, isOnlyImportingTypes }) => !ignoreModule(source.value)
             // Ignore only type imports
-            && !isOnlyImportingTypes,
-          );
+            && !isOnlyImportingTypes);
 
           /*
           If cyclic dependency is allowed via dynamic import, skip checking if any module is imported dynamically
           */
-          if (options.allowUnsafeDynamicCyclicDependency && toTraverse.some((d) => d.dynamic)) { return; }
+          if (options.allowUnsafeDynamicCyclicDependency && toTraverse.some(d => d.dynamic)) {
+            return;
+          }
 
           /*
           Only report as a cycle if there are any import declarations that are considered by
@@ -127,22 +168,27 @@ export default {
           b.ts:
           import type { Bar } from './a'
           */
-          if (path === myPath && toTraverse.length > 0) { return true; }
+          if (path === myPath && toTraverse.length > 0) {
+            return true;
+          }
+
           if (route.length + 1 < maxDepth) {
-            for (const { source } of toTraverse) {
+            toTraverse.forEach(({ source }) => {
               untraversed.push({ mget: getter, route: route.concat(source) });
-            }
+            });
           }
         }
       }
 
       while (untraversed.length > 0) {
         const next = untraversed.shift(); // bfs!
+
         if (detectCycle(next)) {
           const message = next.route.length > 0
             ? `Dependency cycle via ${routeString(next.route)}`
             : 'Dependency cycle detected.';
           context.report(importer, message);
+
           return;
         }
       }

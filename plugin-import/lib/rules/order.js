@@ -1,50 +1,69 @@
-'use strict';
-
-import { minimatch } from 'minimatch';
-
-import importType from '../core/importType.js';
-import isStaticRequire from '../core/staticRequire.js';
+import minimatch from 'minimatch';
+import includes from 'array-includes';
+import groupBy from 'object.groupby';
+import { getScope, getSourceCode } from 'eslint-module-utils/contextCompat';
+import trimEnd from 'string.prototype.trimend';
+import importType from '../core/importType';
+import isStaticRequire from '../core/staticRequire';
 import docsUrl from '../docsUrl.js';
+
+/**
+ * @import { AST, Rule, SourceCode } from 'eslint'
+ * @import { Node } from 'estree'
+ */
+
+const categories = {
+  named: 'named',
+  import: 'import',
+  exports: 'exports',
+};
 
 const defaultGroups = ['builtin', 'external', 'parent', 'sibling', 'index'];
 
 // REPORTING AND FIXING
 
 function reverse(array) {
-  return array.map(function (v) {
-    return { ...v, rank: -v.rank };
-  }).reverse();
+  return array.map(v => ({ ...v, rank: -v.rank })).reverse();
 }
 
 function getTokensOrCommentsAfter(sourceCode, node, count) {
   let currentNodeOrToken = node;
   const result = [];
+
   for (let i = 0; i < count; i++) {
     currentNodeOrToken = sourceCode.getTokenOrCommentAfter(currentNodeOrToken);
+
     if (currentNodeOrToken == null) {
       break;
     }
+
     result.push(currentNodeOrToken);
   }
+
   return result;
 }
 
 function getTokensOrCommentsBefore(sourceCode, node, count) {
   let currentNodeOrToken = node;
   const result = [];
+
   for (let i = 0; i < count; i++) {
     currentNodeOrToken = sourceCode.getTokenOrCommentBefore(currentNodeOrToken);
+
     if (currentNodeOrToken == null) {
       break;
     }
+
     result.push(currentNodeOrToken);
   }
+
   return result.reverse();
 }
 
 function takeTokensAfterWhile(sourceCode, node, condition) {
   const tokens = getTokensOrCommentsAfter(sourceCode, node, 100);
   const result = [];
+
   for (let i = 0; i < tokens.length; i++) {
     if (condition(tokens[i])) {
       result.push(tokens[i]);
@@ -52,12 +71,14 @@ function takeTokensAfterWhile(sourceCode, node, condition) {
       break;
     }
   }
+
   return result;
 }
 
 function takeTokensBeforeWhile(sourceCode, node, condition) {
   const tokens = getTokensOrCommentsBefore(sourceCode, node, 100);
   const result = [];
+
   for (let i = tokens.length - 1; i >= 0; i--) {
     if (condition(tokens[i])) {
       result.push(tokens[i]);
@@ -65,6 +86,7 @@ function takeTokensBeforeWhile(sourceCode, node, condition) {
       break;
     }
   }
+
   return result.reverse();
 }
 
@@ -72,26 +94,32 @@ function findOutOfOrder(imported) {
   if (imported.length === 0) {
     return [];
   }
+
   let maxSeenRankNode = imported[0];
-  return imported.filter(function (importedModule) {
+
+  return imported.filter(importedModule => {
     const res = importedModule.rank < maxSeenRankNode.rank;
+
     if (maxSeenRankNode.rank < importedModule.rank) {
       maxSeenRankNode = importedModule;
     }
+
     return res;
   });
 }
 
 function findRootNode(node) {
   let parent = node;
+
   while (parent.parent != null && parent.parent.body == null) {
     parent = parent.parent;
   }
+
   return parent;
 }
 
 function commentOnSameLineAs(node) {
-  return (token) => (token.type === 'Block' ||  token.type === 'Line')
+  return token => (token.type === 'Block' || token.type === 'Line')
       && token.loc.start.line === token.loc.end.line
       && token.loc.end.line === node.loc.end.line;
 }
@@ -102,16 +130,20 @@ function findEndOfLineWithComments(sourceCode, node) {
     ? tokensToEndOfLine[tokensToEndOfLine.length - 1].range[1]
     : node.range[1];
   let result = endOfTokens;
+
   for (let i = endOfTokens; i < sourceCode.text.length; i++) {
     if (sourceCode.text[i] === '\n') {
       result = i + 1;
       break;
     }
+
     if (sourceCode.text[i] !== ' ' && sourceCode.text[i] !== '\t' && sourceCode.text[i] !== '\r') {
       break;
     }
+
     result = i + 1;
   }
+
   return result;
 }
 
@@ -119,13 +151,36 @@ function findStartOfLineWithComments(sourceCode, node) {
   const tokensToEndOfLine = takeTokensBeforeWhile(sourceCode, node, commentOnSameLineAs(node));
   const startOfTokens = tokensToEndOfLine.length > 0 ? tokensToEndOfLine[0].range[0] : node.range[0];
   let result = startOfTokens;
+
   for (let i = startOfTokens - 1; i > 0; i--) {
     if (sourceCode.text[i] !== ' ' && sourceCode.text[i] !== '\t') {
       break;
     }
+
     result = i;
   }
+
   return result;
+}
+
+function findSpecifierStart(sourceCode, node) {
+  let token;
+
+  do {
+    token = sourceCode.getTokenBefore(node);
+  } while (token.value !== ',' && token.value !== '{');
+
+  return token.range[1];
+}
+
+function findSpecifierEnd(sourceCode, node) {
+  let token;
+
+  do {
+    token = sourceCode.getTokenAfter(node);
+  } while (token.value !== ',' && token.value !== '}');
+
+  return token.range[0];
 }
 
 function isRequireExpression(expr) {
@@ -142,9 +197,11 @@ function isSupportedRequireModule(node) {
   if (node.type !== 'VariableDeclaration') {
     return false;
   }
+
   if (node.declarations.length !== 1) {
     return false;
   }
+
   const decl = node.declarations[0];
   const isPlainRequire = decl.id
     && (decl.id.type === 'Identifier' || decl.id.type === 'ObjectPattern')
@@ -156,6 +213,7 @@ function isSupportedRequireModule(node) {
     && decl.init.callee != null
     && decl.init.callee.type === 'MemberExpression'
     && isRequireExpression(decl.init.callee.object);
+
   return isPlainRequire || isRequireWithMemberExpression;
 }
 
@@ -167,88 +225,216 @@ function isPlainImportEquals(node) {
   return node.type === 'TSImportEqualsDeclaration' && node.moduleReference.expression;
 }
 
+function isCJSExports(context, node) {
+  if (
+    node.type === 'MemberExpression'
+    && node.object.type === 'Identifier'
+    && node.property.type === 'Identifier'
+    && node.object.name === 'module'
+    && node.property.name === 'exports'
+  ) {
+    return getScope(context, node).variables.findIndex(variable => variable.name === 'module') === -1;
+  }
+
+  if (
+    node.type === 'Identifier'
+    && node.name === 'exports'
+  ) {
+    return getScope(context, node).variables.findIndex(variable => variable.name === 'exports') === -1;
+  }
+}
+
+function getNamedCJSExports(context, node) {
+  if (node.type !== 'MemberExpression') {
+    return;
+  }
+
+  const result = [];
+  let root = node;
+  let parent = null;
+
+  while (root.type === 'MemberExpression') {
+    if (root.property.type !== 'Identifier') {
+      return;
+    }
+
+    result.unshift(root.property.name);
+    parent = root;
+    root = root.object;
+  }
+
+  if (isCJSExports(context, root)) {
+    return result;
+  }
+
+  if (isCJSExports(context, parent)) {
+    return result.slice(1);
+  }
+}
+
 function canCrossNodeWhileReorder(node) {
   return isSupportedRequireModule(node) || isPlainImportModule(node) || isPlainImportEquals(node);
 }
 
 function canReorderItems(firstNode, secondNode) {
-  const parent = firstNode.parent;
+  const { parent } = firstNode;
   const [firstIndex, secondIndex] = [
     parent.body.indexOf(firstNode),
     parent.body.indexOf(secondNode),
   ].sort();
   const nodesBetween = parent.body.slice(firstIndex, secondIndex + 1);
+
   for (const nodeBetween of nodesBetween) {
     if (!canCrossNodeWhileReorder(nodeBetween)) {
       return false;
     }
   }
+
   return true;
 }
 
 function makeImportDescription(node) {
+  if (node.type === 'export') {
+    if (node.node.exportKind === 'type') {
+      return 'type export';
+    }
+
+    return 'export';
+  }
+
   if (node.node.importKind === 'type') {
     return 'type import';
   }
+
   if (node.node.importKind === 'typeof') {
     return 'typeof import';
   }
+
   return 'import';
 }
 
-function fixOutOfOrder(context, firstNode, secondNode, order) {
-  const sourceCode = context.getSourceCode();
+function fixOutOfOrder(context, firstNode, secondNode, order, category) {
+  const isNamed = category === categories.named;
+  const isExports = category === categories.exports;
+  const sourceCode = getSourceCode(context);
 
-  const firstRoot = findRootNode(firstNode.node);
-  const firstRootStart = findStartOfLineWithComments(sourceCode, firstRoot);
-  const firstRootEnd = findEndOfLineWithComments(sourceCode, firstRoot);
+  const {
+    firstRoot,
+    secondRoot,
+  } = isNamed
+    ? {
+      firstRoot: firstNode.node,
+      secondRoot: secondNode.node,
+    }
+    : {
+      firstRoot: findRootNode(firstNode.node),
+      secondRoot: findRootNode(secondNode.node),
+    };
 
-  const secondRoot = findRootNode(secondNode.node);
-  const secondRootStart = findStartOfLineWithComments(sourceCode, secondRoot);
-  const secondRootEnd = findEndOfLineWithComments(sourceCode, secondRoot);
-  const canFix = canReorderItems(firstRoot, secondRoot);
+  const {
+    firstRootStart,
+    firstRootEnd,
+    secondRootStart,
+    secondRootEnd,
+  } = isNamed
+    ? {
+      firstRootStart: findSpecifierStart(sourceCode, firstRoot),
+      firstRootEnd: findSpecifierEnd(sourceCode, firstRoot),
+      secondRootStart: findSpecifierStart(sourceCode, secondRoot),
+      secondRootEnd: findSpecifierEnd(sourceCode, secondRoot),
+    }
+    : {
+      firstRootStart: findStartOfLineWithComments(sourceCode, firstRoot),
+      firstRootEnd: findEndOfLineWithComments(sourceCode, firstRoot),
+      secondRootStart: findStartOfLineWithComments(sourceCode, secondRoot),
+      secondRootEnd: findEndOfLineWithComments(sourceCode, secondRoot),
+    };
 
-  let newCode = sourceCode.text.substring(secondRootStart, secondRootEnd);
-  if (newCode[newCode.length - 1] !== '\n') {
-    newCode = `${newCode}\n`;
+  if (firstNode.displayName === secondNode.displayName) {
+    if (firstNode.alias) {
+      firstNode.displayName = `${firstNode.displayName} as ${firstNode.alias}`;
+    }
+
+    if (secondNode.alias) {
+      secondNode.displayName = `${secondNode.displayName} as ${secondNode.alias}`;
+    }
   }
 
   const firstImport = `${makeImportDescription(firstNode)} of \`${firstNode.displayName}\``;
   const secondImport = `\`${secondNode.displayName}\` ${makeImportDescription(secondNode)}`;
   const message = `${secondImport} should occur ${order} ${firstImport}`;
 
-  if (order === 'before') {
-    context.report({
-      node: secondNode.node,
-      message,
-      fix: canFix && ((fixer) => fixer.replaceTextRange(
-        [firstRootStart, secondRootEnd],
-        newCode + sourceCode.text.substring(firstRootStart, secondRootStart),
-      )),
-    });
-  } else if (order === 'after') {
-    context.report({
-      node: secondNode.node,
-      message,
-      fix: canFix && ((fixer) => fixer.replaceTextRange(
-        [secondRootStart, firstRootEnd],
-        sourceCode.text.substring(secondRootEnd, firstRootEnd) + newCode,
-      )),
-    });
+  if (isNamed) {
+    const firstCode = sourceCode.text.slice(firstRootStart, firstRoot.range[1]);
+    const firstTrivia = sourceCode.text.slice(firstRoot.range[1], firstRootEnd);
+    const secondCode = sourceCode.text.slice(secondRootStart, secondRoot.range[1]);
+    const secondTrivia = sourceCode.text.slice(secondRoot.range[1], secondRootEnd);
+
+    if (order === 'before') {
+      const trimmedTrivia = trimEnd(secondTrivia);
+      const gapCode = sourceCode.text.slice(firstRootEnd, secondRootStart - 1);
+      const whitespaces = secondTrivia.slice(trimmedTrivia.length);
+      context.report({
+        node: secondNode.node,
+        message,
+        fix: fixer => fixer.replaceTextRange(
+          [firstRootStart, secondRootEnd],
+          `${secondCode},${trimmedTrivia}${firstCode}${firstTrivia}${gapCode}${whitespaces}`,
+        ),
+      });
+    } else if (order === 'after') {
+      const trimmedTrivia = trimEnd(firstTrivia);
+      const gapCode = sourceCode.text.slice(secondRootEnd + 1, firstRootStart);
+      const whitespaces = firstTrivia.slice(trimmedTrivia.length);
+      context.report({
+        node: secondNode.node,
+        message,
+        fix: fixes => fixes.replaceTextRange(
+          [secondRootStart, firstRootEnd],
+          `${gapCode}${firstCode},${trimmedTrivia}${secondCode}${whitespaces}`,
+        ),
+      });
+    }
+  } else {
+    const canFix = isExports || canReorderItems(firstRoot, secondRoot);
+    let newCode = sourceCode.text.substring(secondRootStart, secondRootEnd);
+
+    if (newCode[newCode.length - 1] !== '\n') {
+      newCode = `${newCode}\n`;
+    }
+
+    if (order === 'before') {
+      context.report({
+        node: secondNode.node,
+        message,
+        fix: canFix && (fixer => fixer.replaceTextRange(
+          [firstRootStart, secondRootEnd],
+          newCode + sourceCode.text.substring(firstRootStart, secondRootStart),
+        )),
+      });
+    } else if (order === 'after') {
+      context.report({
+        node: secondNode.node,
+        message,
+        fix: canFix && (fixer => fixer.replaceTextRange(
+          [secondRootStart, firstRootEnd],
+          sourceCode.text.substring(secondRootEnd, firstRootEnd) + newCode,
+        )),
+      });
+    }
   }
 }
 
-function reportOutOfOrder(context, imported, outOfOrder, order) {
-  outOfOrder.forEach(function (imp) {
-    const found = imported.find(function hasHigherRank(importedItem) {
-      return importedItem.rank > imp.rank;
-    });
-    fixOutOfOrder(context, found, imp, order);
+function reportOutOfOrder(context, imported, outOfOrder, order, category) {
+  outOfOrder.forEach(imp => {
+    const found = imported.find(importedItem => importedItem.rank > imp.rank);
+    fixOutOfOrder(context, found, imp, order, category);
   });
 }
 
-function makeOutOfOrderReport(context, imported) {
+function makeOutOfOrderReport(context, imported, category) {
   const outOfOrder = findOutOfOrder(imported);
+
   if (!outOfOrder.length) {
     return;
   }
@@ -256,33 +442,40 @@ function makeOutOfOrderReport(context, imported) {
   // There are things to report. Try to minimize the number of reported errors.
   const reversedImported = reverse(imported);
   const reversedOrder = findOutOfOrder(reversedImported);
+
   if (reversedOrder.length < outOfOrder.length) {
-    reportOutOfOrder(context, reversedImported, reversedOrder, 'after');
+    reportOutOfOrder(context, reversedImported, reversedOrder, 'after', category);
+
     return;
   }
-  reportOutOfOrder(context, imported, outOfOrder, 'before');
+
+  reportOutOfOrder(context, imported, outOfOrder, 'before', category);
 }
 
 const compareString = (a, b) => {
   if (a < b) {
     return -1;
   }
+
   if (a > b) {
     return 1;
   }
+
   return 0;
 };
 
 /** Some parsers (languages without types) don't provide ImportKind */
-const DEAFULT_IMPORT_KIND = 'value';
+const DEFAULT_IMPORT_KIND = 'value';
+
 const getNormalizedValue = (node, toLowerCase) => {
-  const value = node.value;
+  const { value } = node;
+
   return toLowerCase ? String(value).toLowerCase() : value;
 };
 
 function getSorter(alphabetizeOptions) {
   const multiplier = alphabetizeOptions.order === 'asc' ? 1 : -1;
-  const orderImportKind = alphabetizeOptions.orderImportKind;
+  const { orderImportKind } = alphabetizeOptions;
   const multiplierImportKind = orderImportKind !== 'ignore'
     && (alphabetizeOptions.orderImportKind === 'asc' ? 1 : -1);
 
@@ -291,7 +484,7 @@ function getSorter(alphabetizeOptions) {
     const importB = getNormalizedValue(nodeB, alphabetizeOptions.caseInsensitive);
     let result = 0;
 
-    if (!importA.includes('/') && !importB.includes('/')) {
+    if (!includes(importA, '/') && !includes(importB, '/')) {
       result = compareString(importA, importB);
     } else {
       const A = importA.split('/');
@@ -300,8 +493,20 @@ function getSorter(alphabetizeOptions) {
       const b = B.length;
 
       for (let i = 0; i < Math.min(a, b); i++) {
+        if (i === 0 && ((A[i] === '.' || A[i] === '..') && (B[i] === '.' || B[i] === '..'))) {
+          if (A[i] !== B[i]) {
+            result = compareString(importA, importB);
+            break;
+          }
+
+          continue;
+        }
+
         result = compareString(A[i], B[i]);
-        if (result) { break; }
+
+        if (result) {
+          break;
+        }
       }
 
       if (!result && a !== b) {
@@ -309,13 +514,13 @@ function getSorter(alphabetizeOptions) {
       }
     }
 
-    result = result * multiplier;
+    result *= multiplier;
 
     // In case the paths are equal (result === 0), sort them by importKind
     if (!result && multiplierImportKind) {
       result = multiplierImportKind * compareString(
-        nodeA.node.importKind || DEAFULT_IMPORT_KIND,
-        nodeB.node.importKind || DEAFULT_IMPORT_KIND,
+        nodeA.node.importKind || DEFAULT_IMPORT_KIND,
+        nodeB.node.importKind || DEFAULT_IMPORT_KIND,
       );
     }
 
@@ -324,32 +529,31 @@ function getSorter(alphabetizeOptions) {
 }
 
 function mutateRanksToAlphabetize(imported, alphabetizeOptions) {
-  const groupedByRanks = Object.groupBy(imported, (item) => item.rank);
+  const groupedByRanks = groupBy(imported, item => item.rank);
 
   const sorterFn = getSorter(alphabetizeOptions);
 
   // sort group keys so that they can be iterated on in order
-  const groupRanks = Object.keys(groupedByRanks).sort(function (a, b) {
-    return a - b;
-  });
+  const groupRanks = Object.keys(groupedByRanks).sort((a, b) => a - b);
 
   // sort imports locally within their group
-  groupRanks.forEach(function (groupRank) {
+  groupRanks.forEach(groupRank => {
     groupedByRanks[groupRank].sort(sorterFn);
   });
 
   // assign globally unique rank to each import
   let newRank = 0;
-  const alphabetizedRanks = groupRanks.reduce(function (acc, groupRank) {
-    groupedByRanks[groupRank].forEach(function (importedItem) {
+  const alphabetizedRanks = groupRanks.reduce((acc, groupRank) => {
+    groupedByRanks[groupRank].forEach(importedItem => {
       acc[`${importedItem.value}|${importedItem.node.importKind}`] = parseInt(groupRank, 10) + newRank;
       newRank += 1;
     });
+
     return acc;
   }, {});
 
   // mutate the original group-rank with alphabetized-rank
-  imported.forEach(function (importedItem) {
+  imported.forEach(importedItem => {
     importedItem.rank = alphabetizedRanks[`${importedItem.value}|${importedItem.node.importKind}`];
   });
 }
@@ -358,29 +562,48 @@ function mutateRanksToAlphabetize(imported, alphabetizeOptions) {
 
 function computePathRank(ranks, pathGroups, path, maxPosition) {
   for (let i = 0, l = pathGroups.length; i < l; i++) {
-    const { pattern, patternOptions, group, position = 1 } = pathGroups[i];
+    const {
+      pattern, patternOptions, group, position = 1,
+    } = pathGroups[i];
+
     if (minimatch(path, pattern, patternOptions || { nocomment: true })) {
       return ranks[group] + position / maxPosition;
     }
   }
 }
 
-function computeRank(context, ranks, importEntry, excludedImportTypes) {
+function computeRank(context, ranks, importEntry, excludedImportTypes, isSortingTypesGroup) {
   let impType;
   let rank;
+
+  const isTypeGroupInGroups = ranks.omittedTypes.indexOf('type') === -1;
+  const isTypeOnlyImport = importEntry.node.importKind === 'type';
+  const isExcludedFromPathRank = isTypeOnlyImport && isTypeGroupInGroups && excludedImportTypes.has('type');
+
   if (importEntry.type === 'import:object') {
     impType = 'object';
-  } else if (importEntry.node.importKind === 'type' && ranks.omittedTypes.indexOf('type') === -1) {
+  } else if (isTypeOnlyImport && isTypeGroupInGroups && !isSortingTypesGroup) {
     impType = 'type';
   } else {
     impType = importType(importEntry.value, context);
   }
-  if (!excludedImportTypes.has(impType)) {
+
+  if (!excludedImportTypes.has(impType) && !isExcludedFromPathRank) {
     rank = computePathRank(ranks.groups, ranks.pathGroups, importEntry.value, ranks.maxPosition);
   }
+
   if (typeof rank === 'undefined') {
     rank = ranks.groups[impType];
+
+    if (typeof rank === 'undefined') {
+      return -1;
+    }
   }
+
+  if (isTypeOnlyImport && isSortingTypesGroup) {
+    rank = ranks.groups.type + rank / 10;
+  }
+
   if (importEntry.type !== 'import' && !importEntry.type.startsWith('import:')) {
     rank += 100;
   }
@@ -388,15 +611,27 @@ function computeRank(context, ranks, importEntry, excludedImportTypes) {
   return rank;
 }
 
-function registerNode(context, importEntry, ranks, imported, excludedImportTypes) {
-  const rank = computeRank(context, ranks, importEntry, excludedImportTypes);
+function registerNode(context, importEntry, ranks, imported, excludedImportTypes, isSortingTypesGroup) {
+  const rank = computeRank(context, ranks, importEntry, excludedImportTypes, isSortingTypesGroup);
+
   if (rank !== -1) {
-    imported.push({ ...importEntry, rank });
+    let importNode = importEntry.node;
+
+    if (importEntry.type === 'require' && importNode.parent.parent.type === 'VariableDeclaration') {
+      importNode = importNode.parent.parent;
+    }
+
+    imported.push({
+      ...importEntry,
+      rank,
+      isMultiline: importNode.loc.end.line !== importNode.loc.start.line,
+    });
   }
 }
 
 function getRequireBlock(node) {
   let n = node;
+
   // Handle cases like `const baz = require('foo').bar.baz`
   // and `const foo = require('foo')()`
   while (
@@ -405,6 +640,7 @@ function getRequireBlock(node) {
   ) {
     n = n.parent;
   }
+
   if (
     n.parent.type === 'VariableDeclarator'
     && n.parent.parent.type === 'VariableDeclaration'
@@ -416,29 +652,25 @@ function getRequireBlock(node) {
 
 const types = ['builtin', 'external', 'internal', 'unknown', 'parent', 'sibling', 'index', 'object', 'type'];
 
-// Creates an object with type-rank pairs.
-// Example: { index: 0, sibling: 1, parent: 1, external: 1, builtin: 2, internal: 2 }
-// Will throw an error if it contains a type that does not exist, or has a duplicate
+/**
+ * Creates an object with type-rank pairs.
+ *
+ * Example: { index: 0, sibling: 1, parent: 1, external: 1, builtin: 2, internal: 2 }
+ */
 function convertGroupsToRanks(groups) {
-  const rankObject = groups.reduce(function (res, group, index) {
-    [].concat(group).forEach(function (groupItem) {
-      if (types.indexOf(groupItem) === -1) {
-        throw new Error(`Incorrect configuration of the rule: Unknown type \`${JSON.stringify(groupItem)}\``);
-      }
-      if (res[groupItem] !== undefined) {
-        throw new Error(`Incorrect configuration of the rule: \`${groupItem}\` is duplicated`);
-      }
+  const rankObject = groups.reduce((res, group, index) => {
+    [].concat(group).forEach(groupItem => {
       res[groupItem] = index * 2;
     });
+
     return res;
   }, {});
 
-  const omittedTypes = types.filter(function (type) {
-    return typeof rankObject[type] === 'undefined';
-  });
+  const omittedTypes = types.filter(type => typeof rankObject[type] === 'undefined');
 
-  const ranks = omittedTypes.reduce(function (res, type) {
+  const ranks = omittedTypes.reduce((res, type) => {
     res[type] = groups.length * 2;
+
     return res;
   }, rankObject);
 
@@ -452,15 +684,18 @@ function convertPathGroupsForRanks(pathGroups) {
   const transformed = pathGroups.map((pathGroup, index) => {
     const { group, position: positionString } = pathGroup;
     let position = 0;
+
     if (positionString === 'after') {
       if (!after[group]) {
         after[group] = 1;
       }
+
       position = after[group]++;
     } else if (positionString === 'before') {
       if (!before[group]) {
         before[group] = [];
       }
+
       before[group].push(index);
     }
 
@@ -469,7 +704,7 @@ function convertPathGroupsForRanks(pathGroups) {
 
   let maxPosition = 1;
 
-  Object.keys(before).forEach((group) => {
+  Object.keys(before).forEach(group => {
     const groupLength = before[group].length;
     before[group].forEach((groupIndex, index) => {
       transformed[groupIndex].position = -1 * (groupLength - index);
@@ -477,85 +712,184 @@ function convertPathGroupsForRanks(pathGroups) {
     maxPosition = Math.max(maxPosition, groupLength);
   });
 
-  Object.keys(after).forEach((key) => {
+  Object.keys(after).forEach(key => {
     const groupNextPosition = after[key];
     maxPosition = Math.max(maxPosition, groupNextPosition - 1);
   });
 
   return {
     pathGroups: transformed,
-    maxPosition: maxPosition > 10 ? Math.pow(10, Math.ceil(Math.log10(maxPosition))) : 10,
+    maxPosition: maxPosition > 10 ? 10 ** Math.ceil(Math.log10(maxPosition)) : 10,
   };
 }
 
 function fixNewLineAfterImport(context, previousImport) {
   const prevRoot = findRootNode(previousImport.node);
   const tokensToEndOfLine = takeTokensAfterWhile(
-    context.getSourceCode(), prevRoot, commentOnSameLineAs(prevRoot));
+    getSourceCode(context),
+    prevRoot,
+    commentOnSameLineAs(prevRoot),
+  );
 
   let endOfLine = prevRoot.range[1];
+
   if (tokensToEndOfLine.length > 0) {
     endOfLine = tokensToEndOfLine[tokensToEndOfLine.length - 1].range[1];
   }
-  return (fixer) => fixer.insertTextAfterRange([prevRoot.range[0], endOfLine], '\n');
+
+  return fixer => fixer.insertTextAfterRange([prevRoot.range[0], endOfLine], '\n');
 }
 
 function removeNewLineAfterImport(context, currentImport, previousImport) {
-  const sourceCode = context.getSourceCode();
+  const sourceCode = getSourceCode(context);
   const prevRoot = findRootNode(previousImport.node);
   const currRoot = findRootNode(currentImport.node);
   const rangeToRemove = [
     findEndOfLineWithComments(sourceCode, prevRoot),
     findStartOfLineWithComments(sourceCode, currRoot),
   ];
+
   if ((/^\s*$/).test(sourceCode.text.substring(rangeToRemove[0], rangeToRemove[1]))) {
-    return (fixer) => fixer.removeRange(rangeToRemove);
+    return fixer => fixer.removeRange(rangeToRemove);
   }
+
   return undefined;
 }
 
-function makeNewlinesBetweenReport(context, imported, newlinesBetweenImports, distinctGroup) {
+function makeNewlinesBetweenReport(context, imported, newlinesBetweenImports_, newlinesBetweenTypeOnlyImports_, distinctGroup, isSortingTypesGroup, isConsolidatingSpaceBetweenImports) {
   const getNumberOfEmptyLinesBetween = (currentImport, previousImport) => {
-    const linesBetweenImports = context.getSourceCode().lines.slice(
+    const linesBetweenImports = getSourceCode(context).lines.slice(
       previousImport.node.loc.end.line,
       currentImport.node.loc.start.line - 1,
     );
 
-    return linesBetweenImports.filter((line) => !line.trim().length).length;
+    return linesBetweenImports.filter(line => !line.trim().length).length;
   };
+
   const getIsStartOfDistinctGroup = (currentImport, previousImport) => currentImport.rank - 1 >= previousImport.rank;
   let previousImport = imported[0];
 
-  imported.slice(1).forEach(function (currentImport) {
-    const emptyLinesBetween = getNumberOfEmptyLinesBetween(currentImport, previousImport);
-    const isStartOfDistinctGroup = getIsStartOfDistinctGroup(currentImport, previousImport);
+  imported.slice(1).forEach(currentImport => {
+    const emptyLinesBetween = getNumberOfEmptyLinesBetween(
+      currentImport,
+      previousImport,
+    );
 
-    if (newlinesBetweenImports === 'always'
-        || newlinesBetweenImports === 'always-and-inside-groups') {
-      if (currentImport.rank !== previousImport.rank && emptyLinesBetween === 0) {
-        if (distinctGroup || !distinctGroup && isStartOfDistinctGroup) {
+    const isStartOfDistinctGroup = getIsStartOfDistinctGroup(
+      currentImport,
+      previousImport,
+    );
+
+    const isTypeOnlyImport = currentImport.node.importKind === 'type';
+    const isPreviousImportTypeOnlyImport = previousImport.node.importKind === 'type';
+
+    const isNormalImportNextToTypeOnlyImportAndRelevant = isTypeOnlyImport !== isPreviousImportTypeOnlyImport && isSortingTypesGroup;
+
+    const isTypeOnlyImportAndRelevant = isTypeOnlyImport && isSortingTypesGroup;
+
+    // In the special case where newlinesBetweenImports and consolidateIslands
+    // want the opposite thing, consolidateIslands wins
+    const newlinesBetweenImports = isSortingTypesGroup
+      && isConsolidatingSpaceBetweenImports
+      && (previousImport.isMultiline || currentImport.isMultiline)
+      && newlinesBetweenImports_ === 'never'
+      ? 'always-and-inside-groups'
+      : newlinesBetweenImports_;
+
+    // In the special case where newlinesBetweenTypeOnlyImports and
+    // consolidateIslands want the opposite thing, consolidateIslands wins
+    const newlinesBetweenTypeOnlyImports = isSortingTypesGroup
+      && isConsolidatingSpaceBetweenImports
+      && (isNormalImportNextToTypeOnlyImportAndRelevant
+        || previousImport.isMultiline
+        || currentImport.isMultiline)
+      && newlinesBetweenTypeOnlyImports_ === 'never'
+      ? 'always-and-inside-groups'
+      : newlinesBetweenTypeOnlyImports_;
+
+    const isNotIgnored = isTypeOnlyImportAndRelevant
+        && newlinesBetweenTypeOnlyImports !== 'ignore'
+      || !isTypeOnlyImportAndRelevant && newlinesBetweenImports !== 'ignore';
+
+    if (isNotIgnored) {
+      const shouldAssertNewlineBetweenGroups = (isTypeOnlyImportAndRelevant || isNormalImportNextToTypeOnlyImportAndRelevant)
+          && (newlinesBetweenTypeOnlyImports === 'always'
+            || newlinesBetweenTypeOnlyImports === 'always-and-inside-groups')
+        || !isTypeOnlyImportAndRelevant && !isNormalImportNextToTypeOnlyImportAndRelevant
+          && (newlinesBetweenImports === 'always'
+            || newlinesBetweenImports === 'always-and-inside-groups');
+
+      const shouldAssertNoNewlineWithinGroup = (isTypeOnlyImportAndRelevant || isNormalImportNextToTypeOnlyImportAndRelevant)
+          && newlinesBetweenTypeOnlyImports !== 'always-and-inside-groups'
+        || !isTypeOnlyImportAndRelevant && !isNormalImportNextToTypeOnlyImportAndRelevant
+          && newlinesBetweenImports !== 'always-and-inside-groups';
+
+      const shouldAssertNoNewlineBetweenGroup = !isSortingTypesGroup
+        || !isNormalImportNextToTypeOnlyImportAndRelevant
+        || newlinesBetweenTypeOnlyImports === 'never';
+
+      const isTheNewlineBetweenImportsInTheSameGroup = distinctGroup && currentImport.rank === previousImport.rank
+      || !distinctGroup && !isStartOfDistinctGroup;
+
+      // Let's try to cut down on linting errors sent to the user
+      let alreadyReported = false;
+
+      if (shouldAssertNewlineBetweenGroups) {
+        if (currentImport.rank !== previousImport.rank && emptyLinesBetween === 0) {
+          if (distinctGroup || isStartOfDistinctGroup) {
+            alreadyReported = true;
+            context.report({
+              node: previousImport.node,
+              message: 'There should be at least one empty line between import groups',
+              fix: fixNewLineAfterImport(context, previousImport),
+            });
+          }
+        } else if (emptyLinesBetween > 0 && shouldAssertNoNewlineWithinGroup) {
+          if (isTheNewlineBetweenImportsInTheSameGroup) {
+            alreadyReported = true;
+            context.report({
+              node: previousImport.node,
+              message: 'There should be no empty line within import group',
+              fix: removeNewLineAfterImport(context, currentImport, previousImport),
+            });
+          }
+        }
+      } else if (emptyLinesBetween > 0 && shouldAssertNoNewlineBetweenGroup) {
+        alreadyReported = true;
+        context.report({
+          node: previousImport.node,
+          message: 'There should be no empty line between import groups',
+          fix: removeNewLineAfterImport(context, currentImport, previousImport),
+        });
+      }
+
+      if (!alreadyReported && isConsolidatingSpaceBetweenImports) {
+        if (emptyLinesBetween === 0 && currentImport.isMultiline) {
           context.report({
             node: previousImport.node,
-            message: 'There should be at least one empty line between import groups',
+            message: 'There should be at least one empty line between this import and the multi-line import that follows it',
             fix: fixNewLineAfterImport(context, previousImport),
           });
-        }
-      } else if (emptyLinesBetween > 0
-        && newlinesBetweenImports !== 'always-and-inside-groups') {
-        if (distinctGroup && currentImport.rank === previousImport.rank || !distinctGroup && !isStartOfDistinctGroup) {
+        } else if (emptyLinesBetween === 0 && previousImport.isMultiline) {
           context.report({
             node: previousImport.node,
-            message: 'There should be no empty line within import group',
+            message: 'There should be at least one empty line between this multi-line import and the import that follows it',
+            fix: fixNewLineAfterImport(context, previousImport),
+          });
+        } else if (
+          emptyLinesBetween > 0
+          && !previousImport.isMultiline
+          && !currentImport.isMultiline
+          && isTheNewlineBetweenImportsInTheSameGroup
+        ) {
+          context.report({
+            node: previousImport.node,
+            message:
+              'There should be no empty lines between this single-line import and the single-line import that follows it',
             fix: removeNewLineAfterImport(context, currentImport, previousImport),
           });
         }
       }
-    } else if (emptyLinesBetween > 0) {
-      context.report({
-        node: previousImport.node,
-        message: 'There should be no empty line between import groups',
-        fix: removeNewLineAfterImport(context, currentImport, previousImport),
-      });
     }
 
     previousImport = currentImport;
@@ -574,6 +908,7 @@ function getAlphabetizeConfig(options) {
 // TODO, semver-major: Change the default of "distinctGroup" from true to false
 const defaultDistinctGroup = true;
 
+/** @type {Rule.RuleModule} */
 export default {
   meta: {
     type: 'suggestion',
@@ -590,6 +925,17 @@ export default {
         properties: {
           groups: {
             type: 'array',
+            uniqueItems: true,
+            items: {
+              oneOf: [
+                { enum: types },
+                {
+                  type: 'array',
+                  uniqueItems: true,
+                  items: { enum: types },
+                },
+              ],
+            },
           },
           pathGroupsExcludedImportTypes: {
             type: 'array',
@@ -630,6 +976,48 @@ export default {
               'never',
             ],
           },
+          'newlines-between-types': {
+            enum: [
+              'ignore',
+              'always',
+              'always-and-inside-groups',
+              'never',
+            ],
+          },
+          consolidateIslands: {
+            enum: [
+              'inside-groups',
+              'never',
+            ],
+          },
+          sortTypesGroup: {
+            type: 'boolean',
+            default: false,
+          },
+          named: {
+            default: false,
+            oneOf: [{
+              type: 'boolean',
+            }, {
+              type: 'object',
+              properties: {
+                enabled: { type: 'boolean' },
+                import: { type: 'boolean' },
+                export: { type: 'boolean' },
+                require: { type: 'boolean' },
+                cjsExports: { type: 'boolean' },
+                types: {
+                  type: 'string',
+                  enum: [
+                    'mixed',
+                    'types-first',
+                    'types-last',
+                  ],
+                },
+              },
+              additionalProperties: false,
+            }],
+          },
           alphabetize: {
             type: 'object',
             properties: {
@@ -654,14 +1042,105 @@ export default {
           },
         },
         additionalProperties: false,
+        dependencies: {
+          sortTypesGroup: {
+            oneOf: [
+              {
+                // When sortTypesGroup is true, groups must NOT be an array that does not contain 'type'
+                properties: {
+                  sortTypesGroup: { enum: [true] },
+                  groups: {
+                    not: {
+                      type: 'array',
+                      uniqueItems: true,
+                      items: {
+                        oneOf: [
+                          { enum: types.filter(t => t !== 'type') },
+                          {
+                            type: 'array',
+                            uniqueItems: true,
+                            items: { enum: types.filter(t => t !== 'type') },
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+                required: ['groups'],
+              },
+              {
+                properties: {
+                  sortTypesGroup: { enum: [false] },
+                },
+              },
+            ],
+          },
+          'newlines-between-types': {
+            properties: {
+              sortTypesGroup: { enum: [true] },
+            },
+            required: ['sortTypesGroup'],
+          },
+          consolidateIslands: {
+            oneOf: [
+              {
+                properties: {
+                  consolidateIslands: { enum: ['inside-groups'] },
+                },
+                anyOf: [
+                  {
+                    properties: {
+                      'newlines-between': { enum: ['always-and-inside-groups'] },
+                    },
+                    required: ['newlines-between'],
+                  },
+                  {
+                    properties: {
+                      'newlines-between-types': { enum: ['always-and-inside-groups'] },
+                    },
+                    required: ['newlines-between-types'],
+                  },
+                ],
+              },
+              {
+                properties: {
+                  consolidateIslands: { enum: ['never'] },
+                },
+              },
+            ],
+          },
+        },
       },
     ],
   },
 
-  create: function importOrderRule(context) {
+  create(context) {
     const options = context.options[0] || {};
     const newlinesBetweenImports = options['newlines-between'] || 'ignore';
+    const newlinesBetweenTypeOnlyImports = options['newlines-between-types'] || newlinesBetweenImports;
     const pathGroupsExcludedImportTypes = new Set(options.pathGroupsExcludedImportTypes || ['builtin', 'external', 'object']);
+    const { sortTypesGroup } = options;
+    const consolidateIslands = options.consolidateIslands || 'never';
+
+    const named = {
+      types: 'mixed',
+      ...typeof options.named === 'object'
+        ? {
+          ...options.named,
+          import: 'import' in options.named ? options.named.import : options.named.enabled,
+          export: 'export' in options.named ? options.named.export : options.named.enabled,
+          require: 'require' in options.named ? options.named.require : options.named.enabled,
+          cjsExports: 'cjsExports' in options.named ? options.named.cjsExports : options.named.enabled,
+        }
+        : {
+          import: options.named,
+          export: options.named,
+          require: options.named,
+          cjsExports: options.named,
+        },
+    };
+
+    const namedGroups = named.types === 'mixed' ? [] : named.types === 'types-last' ? ['value'] : ['type'];
     const alphabetize = getAlphabetizeConfig(options);
     const distinctGroup = options.distinctGroup == null ? defaultDistinctGroup : !!options.distinctGroup;
     let ranks;
@@ -683,17 +1162,55 @@ export default {
         },
       };
     }
+
     const importMap = new Map();
+    const exportMap = new Map();
+
+    const isTypeGroupInGroups = ranks.omittedTypes.indexOf('type') === -1;
+    const isSortingTypesGroup = isTypeGroupInGroups && sortTypesGroup;
 
     function getBlockImports(node) {
       if (!importMap.has(node)) {
         importMap.set(node, []);
       }
+
       return importMap.get(node);
     }
 
+    function getBlockExports(node) {
+      if (!exportMap.has(node)) {
+        exportMap.set(node, []);
+      }
+
+      return exportMap.get(node);
+    }
+
+    function makeNamedOrderReport(context, namedImports) {
+      if (namedImports.length > 1) {
+        const imports = namedImports.map(
+          namedImport => {
+            const kind = namedImport.kind || 'value';
+            const rank = namedGroups.findIndex(entry => [].concat(entry).indexOf(kind) > -1);
+
+            return {
+              displayName: namedImport.value,
+              rank: rank === -1 ? namedGroups.length : rank,
+              ...namedImport,
+              value: `${namedImport.value}:${namedImport.alias || ''}`,
+            };
+          },
+        );
+
+        if (alphabetize.order !== 'ignore') {
+          mutateRanksToAlphabetize(imports, alphabetize);
+        }
+
+        makeOutOfOrderReport(context, imports, categories.named);
+      }
+    }
+
     return {
-      ImportDeclaration: function handleImports(node) {
+      ImportDeclaration(node) {
         // Ignoring unassigned imports unless warnOnUnassignedImports is set
         if (node.specifiers.length || options.warnOnUnassignedImports) {
           const name = node.source.value;
@@ -708,26 +1225,49 @@ export default {
             ranks,
             getBlockImports(node.parent),
             pathGroupsExcludedImportTypes,
+            isSortingTypesGroup,
           );
+
+          if (named.import) {
+            makeNamedOrderReport(
+              context,
+              node.specifiers.filter(
+                specifier => specifier.type === 'ImportSpecifier',
+              ).map(
+                specifier => ({
+                  node: specifier,
+                  value: specifier.imported.name,
+                  type: 'import',
+                  kind: specifier.importKind,
+                  ...specifier.local.range[0] !== specifier.imported.range[0] && {
+                    alias: specifier.local.name,
+                  },
+                }),
+              ),
+            );
+          }
         }
       },
-      TSImportEqualsDeclaration: function handleImports(node) {
-        let displayName;
-        let value;
-        let type;
+      TSImportEqualsDeclaration(node) {
         // skip "export import"s
         if (node.isExport) {
           return;
         }
+
+        let displayName;
+        let value;
+        let type;
+
         if (node.moduleReference.type === 'TSExternalModuleReference') {
           value = node.moduleReference.expression.value;
           displayName = value;
           type = 'import';
         } else {
           value = '';
-          displayName = context.getSourceCode().getText(node.moduleReference);
+          displayName = getSourceCode(context).getText(node.moduleReference);
           type = 'import:object';
         }
+
         registerNode(
           context,
           {
@@ -739,16 +1279,20 @@ export default {
           ranks,
           getBlockImports(node.parent),
           pathGroupsExcludedImportTypes,
+          isSortingTypesGroup,
         );
       },
-      CallExpression: function handleRequires(node) {
+      CallExpression(node) {
         if (!isStaticRequire(node)) {
           return;
         }
+
         const block = getRequireBlock(node);
+
         if (!block) {
           return;
         }
+
         const name = node.arguments[0].value;
         registerNode(
           context,
@@ -761,22 +1305,128 @@ export default {
           ranks,
           getBlockImports(block),
           pathGroupsExcludedImportTypes,
+          isSortingTypesGroup,
         );
       },
-      'Program:exit': function reportAndReset() {
-        importMap.forEach((imported) => {
-          if (newlinesBetweenImports !== 'ignore') {
-            makeNewlinesBetweenReport(context, imported, newlinesBetweenImports, distinctGroup);
+      ...named.require && {
+        VariableDeclarator(node) {
+          if (node.id.type === 'ObjectPattern' && isRequireExpression(node.init)) {
+            for (let i = 0; i < node.id.properties.length; i++) {
+              if (
+                node.id.properties[i].key.type !== 'Identifier'
+                || node.id.properties[i].value.type !== 'Identifier'
+              ) {
+                return;
+              }
+            }
+
+            makeNamedOrderReport(
+              context,
+              node.id.properties.map(prop => ({
+                node: prop,
+                value: prop.key.name,
+                type: 'require',
+                ...prop.key.range[0] !== prop.value.range[0] && {
+                  alias: prop.value.name,
+                },
+              })),
+            );
+          }
+        },
+      },
+      ...named.export && {
+        ExportNamedDeclaration(node) {
+          makeNamedOrderReport(
+            context,
+            node.specifiers.map(specifier => ({
+              node: specifier,
+              value: specifier.local.name,
+              type: 'export',
+              kind: specifier.exportKind,
+              ...specifier.local.range[0] !== specifier.exported.range[0] && {
+                alias: specifier.exported.name,
+              },
+            })),
+          );
+        },
+      },
+      ...named.cjsExports && {
+        AssignmentExpression(node) {
+          if (node.parent.type === 'ExpressionStatement') {
+            if (isCJSExports(context, node.left)) {
+              if (node.right.type === 'ObjectExpression') {
+                for (let i = 0; i < node.right.properties.length; i++) {
+                  if (
+                    !node.right.properties[i].key
+                    || node.right.properties[i].key.type !== 'Identifier'
+                    || !node.right.properties[i].value
+                    || node.right.properties[i].value.type !== 'Identifier'
+                  ) {
+                    return;
+                  }
+                }
+
+                makeNamedOrderReport(
+                  context,
+                  node.right.properties.map(prop => ({
+                    node: prop,
+                    value: prop.key.name,
+                    type: 'export',
+                    ...prop.key.range[0] !== prop.value.range[0] && {
+                      alias: prop.value.name,
+                    },
+                  })),
+                );
+              }
+            } else {
+              const nameParts = getNamedCJSExports(context, node.left);
+
+              if (nameParts && nameParts.length > 0) {
+                const name = nameParts.join('.');
+                getBlockExports(node.parent.parent).push({
+                  node,
+                  value: name,
+                  displayName: name,
+                  type: 'export',
+                  rank: 0,
+                });
+              }
+            }
+          }
+        },
+      },
+      'Program:exit'() {
+        importMap.forEach(imported => {
+          if (newlinesBetweenImports !== 'ignore' || newlinesBetweenTypeOnlyImports !== 'ignore') {
+            makeNewlinesBetweenReport(
+              context,
+              imported,
+              newlinesBetweenImports,
+              newlinesBetweenTypeOnlyImports,
+              distinctGroup,
+              isSortingTypesGroup,
+              consolidateIslands === 'inside-groups'
+                && (newlinesBetweenImports === 'always-and-inside-groups'
+                  || newlinesBetweenTypeOnlyImports === 'always-and-inside-groups'),
+            );
           }
 
           if (alphabetize.order !== 'ignore') {
             mutateRanksToAlphabetize(imported, alphabetize);
           }
 
-          makeOutOfOrderReport(context, imported);
+          makeOutOfOrderReport(context, imported, categories.import);
+        });
+
+        exportMap.forEach(exported => {
+          if (alphabetize.order !== 'ignore') {
+            mutateRanksToAlphabetize(exported, alphabetize);
+            makeOutOfOrderReport(context, exported, categories.exports);
+          }
         });
 
         importMap.clear();
+        exportMap.clear();
       },
     };
   },

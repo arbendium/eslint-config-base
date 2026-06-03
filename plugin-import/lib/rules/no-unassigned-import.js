@@ -1,8 +1,8 @@
 import path from 'path';
-import { minimatch } from 'minimatch';
-
-import isStaticRequire from '../core/staticRequire.js';
-import docsUrl from '../docsUrl.js';
+import minimatch from 'minimatch';
+import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
+import isStaticRequire from '../core/staticRequire';
+import docsUrl from '../docsUrl';
 
 function report(context, node) {
   context.report({
@@ -24,15 +24,14 @@ function testIsAllow(globs, filename, source) {
     filePath = path.resolve(path.dirname(filename), source); // get source absolute path
   }
 
-  return globs.find((glob) => minimatch(filePath, glob)
-    || minimatch(filePath, path.join(process.cwd(), glob)),
-  ) !== undefined;
+  return globs.find(glob => minimatch(filePath, glob)
+    || minimatch(filePath, path.join(process.cwd(), glob))) !== undefined;
 }
 
 function create(context) {
   const options = context.options[0] || {};
-  const filename = context.getPhysicalFilename ? context.getPhysicalFilename() : context.getFilename();
-  const isAllow = (source) => testIsAllow(options.allow, filename, source);
+  const filename = getPhysicalFilename(context);
+  const isAllow = source => testIsAllow(options.allow, filename, source);
 
   return {
     ImportDeclaration(node) {
@@ -52,7 +51,7 @@ function create(context) {
   };
 }
 
-export default {
+module.exports = {
   create,
   meta: {
     type: 'suggestion',

@@ -12,22 +12,29 @@ export default function recursivePatternCapture(pattern, callback) {
       break;
 
     case 'ObjectPattern':
-      pattern.properties.forEach((p) => {
+      pattern.properties.forEach(p => {
         if (p.type === 'ExperimentalRestProperty' || p.type === 'RestElement') {
           callback(p.argument);
+
           return;
         }
+
         recursivePatternCapture(p.value, callback);
       });
       break;
 
     case 'ArrayPattern':
-      pattern.elements.forEach((element) => {
-        if (element == null) { return; }
-        if (element.type === 'ExperimentalRestProperty' || element.type === 'RestElement') {
-          callback(element.argument);
+      pattern.elements.forEach(element => {
+        if (element == null) {
           return;
         }
+
+        if (element.type === 'ExperimentalRestProperty' || element.type === 'RestElement') {
+          callback(element.argument);
+
+          return;
+        }
+
         recursivePatternCapture(element, callback);
       });
       break;

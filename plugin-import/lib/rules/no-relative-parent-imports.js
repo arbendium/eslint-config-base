@@ -1,11 +1,11 @@
-import moduleVisitor, { makeOptionsSchema } from '../core/moduleVisitor.js';
-import docsUrl from '../docsUrl.js';
 import { basename, dirname, relative } from 'path';
-import resolve from '../core/resolve.js';
+import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
+import moduleVisitor, { makeOptionsSchema } from 'eslint-module-utils/moduleVisitor';
+import resolve from 'eslint-module-utils/resolve';
+import importType from '../core/importType';
+import docsUrl from '../docsUrl';
 
-import importType from '../core/importType.js';
-
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -17,17 +17,20 @@ export default {
   },
 
   create: function noRelativePackages(context) {
-    const myPath = context.getPhysicalFilename ? context.getPhysicalFilename() : context.getFilename();
-    if (myPath === '<text>') { return {}; } // can't check a non-file
+    const myPath = getPhysicalFilename(context);
 
-    function checkSourceValue(sourceNode) {
+    if (myPath === '<text>') {
+      return {};
+    } // can't check a non-file
+
+    function checkSourceValue(sourceNode, node, moduleSystem) {
       const depPath = sourceNode.value;
 
       if (importType(depPath, context) === 'external') { // ignore packages
         return;
       }
 
-      const absDepPath = resolve(depPath, context);
+      const absDepPath = resolve(depPath, context, moduleSystem);
 
       if (!absDepPath) { // unable to resolve path
         return;

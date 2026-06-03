@@ -1,9 +1,11 @@
-import { minimatch } from 'minimatch';
+import minimatch from 'minimatch';
 import path from 'path';
-import pkgUp from '../core/pkgUp.js';
+import { getPhysicalFilename, getSourceCode } from 'eslint-module-utils/contextCompat';
+import pkgUp from 'eslint-module-utils/pkgUp';
 
 function getEntryPoint(context) {
-  const pkgPath = pkgUp({ cwd: context.getPhysicalFilename ? context.getPhysicalFilename() : context.getFilename() });
+  const pkgPath = pkgUp({ cwd: getPhysicalFilename(context) });
+
   try {
     return require.resolve(path.dirname(pkgPath));
   } catch (error) {
@@ -14,17 +16,18 @@ function getEntryPoint(context) {
 }
 
 function findScope(context, identifier) {
-  const { scopeManager } = context.getSourceCode();
+  const { scopeManager } = getSourceCode(context);
 
-  return scopeManager && scopeManager.scopes.slice().reverse().find((scope) => scope.variables.some((variable) => variable.identifiers.some((node) => node.name === identifier)));
+  return scopeManager && scopeManager.scopes.slice().reverse().find(scope => scope.variables.some(variable => variable.identifiers.some(node => node.name === identifier)));
 }
 
 function findDefinition(objectScope, identifier) {
-  const variable = objectScope.variables.find((variable) => variable.name === identifier);
-  return variable.defs.find((def) => def.name.name === identifier);
+  const variable = objectScope.variables.find(variable => variable.name === identifier);
+
+  return variable.defs.find(def => def.name.name === identifier);
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'problem',
     docs: {
@@ -50,7 +53,7 @@ export default {
     let alreadyReported = false;
 
     function report(node) {
-      const fileName = context.getPhysicalFilename ? context.getPhysicalFilename() : context.getFilename();
+      const fileName = getPhysicalFilename(context);
       const isEntryPoint = entryPoint === fileName;
       const isIdentifier = node.object.type === 'Identifier';
       const hasKeywords = (/^(module|exports)$/).test(node.object.name);
@@ -58,13 +61,13 @@ export default {
       const variableDefinition = objectScope && findDefinition(objectScope, node.object.name);
       const isImportBinding = variableDefinition && variableDefinition.type === 'ImportBinding';
       const hasCJSExportReference = hasKeywords && (!objectScope || objectScope.type === 'module');
-      const isException = !!options.exceptions && options.exceptions.some((glob) => minimatch(fileName, glob));
+      const isException = !!options.exceptions && options.exceptions.some(glob => minimatch(fileName, glob));
 
       if (isIdentifier && hasCJSExportReference && !isEntryPoint && !isException && !isImportBinding) {
-        importDeclarations.forEach((importDeclaration) => {
+        importDeclarations.forEach(importDeclaration => {
           context.report({
             node: importDeclaration,
-            message: `Cannot use import declarations in modules that export using CommonJS (export default 'foo' or exports.bar = 'hi')`,
+            message: 'Cannot use import declarations in modules that export using CommonJS (module.exports = \'foo\' or exports.bar = \'hi\')',
           });
         });
         alreadyReported = true;

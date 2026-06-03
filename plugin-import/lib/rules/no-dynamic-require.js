@@ -1,4 +1,4 @@
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 function isRequire(node) {
   return node
@@ -21,7 +21,7 @@ function isStaticValue(arg) {
 
 const dynamicImportErrorMessage = 'Calls to import() should use string literals';
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -50,12 +50,14 @@ export default {
         if (!node.arguments[0] || isStaticValue(node.arguments[0])) {
           return;
         }
+
         if (isRequire(node)) {
           return context.report({
             node,
             message: 'Calls to require() should use string literals',
           });
         }
+
         if (options.esmodule && isDynamicImport(node)) {
           return context.report({
             node,
@@ -67,6 +69,7 @@ export default {
         if (!options.esmodule || isStaticValue(node.source)) {
           return;
         }
+
         return context.report({
           node,
           message: dynamicImportErrorMessage,

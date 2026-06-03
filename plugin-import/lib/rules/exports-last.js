@@ -1,4 +1,5 @@
-import docsUrl from '../docsUrl.js';
+import findLastIndex from 'array.prototype.findlastindex';
+import docsUrl from '../docsUrl';
 
 function isNonExportStatement({ type }) {
   return type !== 'ExportDefaultDeclaration'
@@ -6,7 +7,7 @@ function isNonExportStatement({ type }) {
     && type !== 'ExportAllDeclaration';
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -20,10 +21,10 @@ export default {
   create(context) {
     return {
       Program({ body }) {
-        const lastNonExportStatementIndex = body.findLastIndex(isNonExportStatement);
+        const lastNonExportStatementIndex = findLastIndex(body, isNonExportStatement);
 
         if (lastNonExportStatementIndex !== -1) {
-          body.slice(0, lastNonExportStatementIndex).forEach((node) => {
+          body.slice(0, lastNonExportStatementIndex).forEach(node => {
             if (!isNonExportStatement(node)) {
               context.report({
                 node,

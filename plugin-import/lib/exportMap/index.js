@@ -25,12 +25,17 @@ export default class ExportMap {
 
   get size() {
     let size = this.namespace.size + this.reexports.size;
-    this.dependencies.forEach((dep) => {
+    this.dependencies.forEach(dep => {
       const d = dep();
+
       // CJS / ignored dependencies won't exist (#717)
-      if (d == null) { return; }
+      if (d == null) {
+        return;
+      }
+
       size += d.size;
     });
+
     return size;
   }
 
@@ -42,8 +47,13 @@ export default class ExportMap {
    * @return {boolean} true if `name` is exported by this module.
    */
   has(name) {
-    if (this.namespace.has(name)) { return true; }
-    if (this.reexports.has(name)) { return true; }
+    if (this.namespace.has(name)) {
+      return true;
+    }
+
+    if (this.reexports.has(name)) {
+      return true;
+    }
 
     // default exports must be explicitly re-exported (#328)
     if (name !== 'default') {
@@ -51,9 +61,13 @@ export default class ExportMap {
         const innerMap = dep();
 
         // todo: report as unresolved?
-        if (!innerMap) { continue; }
+        if (!innerMap) {
+          continue;
+        }
 
-        if (innerMap.has(name)) { return true; }
+        if (innerMap.has(name)) {
+          return true;
+        }
       }
     }
 
@@ -66,14 +80,18 @@ export default class ExportMap {
    * @return {{ found: boolean, path: ExportMap[] }}
    */
   hasDeep(name) {
-    if (this.namespace.has(name)) { return { found: true, path: [this] }; }
+    if (this.namespace.has(name)) {
+      return { found: true, path: [this] };
+    }
 
     if (this.reexports.has(name)) {
       const reexports = this.reexports.get(name);
       const imported = reexports.getImport();
 
       // if import is ignored, return explicit 'null'
-      if (imported == null) { return { found: true, path: [this] }; }
+      if (imported == null) {
+        return { found: true, path: [this] };
+      }
 
       // safeguard against cycles, only if name matches
       if (imported.path === this.path && reexports.local === name) {
@@ -90,16 +108,26 @@ export default class ExportMap {
     if (name !== 'default') {
       for (const dep of this.dependencies) {
         const innerMap = dep();
-        if (innerMap == null) { return { found: true, path: [this] }; }
+
+        if (innerMap == null) {
+          return { found: true, path: [this] };
+        }
+
         // todo: report as unresolved?
-        if (!innerMap) { continue; }
+        if (!innerMap) {
+          continue;
+        }
 
         // safeguard against cycles
-        if (innerMap.path === this.path) { continue; }
+        if (innerMap.path === this.path) {
+          continue;
+        }
 
         const innerValue = innerMap.hasDeep(name);
+
         if (innerValue.found) {
           innerValue.path.unshift(this);
+
           return innerValue;
         }
       }
@@ -109,17 +137,23 @@ export default class ExportMap {
   }
 
   get(name) {
-    if (this.namespace.has(name)) { return this.namespace.get(name); }
+    if (this.namespace.has(name)) {
+      return this.namespace.get(name);
+    }
 
     if (this.reexports.has(name)) {
       const reexports = this.reexports.get(name);
       const imported = reexports.getImport();
 
       // if import is ignored, return explicit 'null'
-      if (imported == null) { return null; }
+      if (imported == null) {
+        return null;
+      }
 
       // safeguard against cycles, only if name matches
-      if (imported.path === this.path && reexports.local === name) { return undefined; }
+      if (imported.path === this.path && reexports.local === name) {
+        return undefined;
+      }
 
       return imported.get(reexports.local);
     }
@@ -128,14 +162,22 @@ export default class ExportMap {
     if (name !== 'default') {
       for (const dep of this.dependencies) {
         const innerMap = dep();
+
         // todo: report as unresolved?
-        if (!innerMap) { continue; }
+        if (!innerMap) {
+          continue;
+        }
 
         // safeguard against cycles
-        if (innerMap.path === this.path) { continue; }
+        if (innerMap.path === this.path) {
+          continue;
+        }
 
         const innerValue = innerMap.get(name);
-        if (innerValue !== undefined) { return innerValue; }
+
+        if (innerValue !== undefined) {
+          return innerValue;
+        }
       }
     }
 
@@ -151,10 +193,13 @@ export default class ExportMap {
       callback.call(thisArg, reexported && reexported.get(reexports.local), name, this);
     });
 
-    this.dependencies.forEach((dep) => {
+    this.dependencies.forEach(dep => {
       const d = dep();
+
       // CJS / ignored dependencies won't exist (#717)
-      if (d == null) { return; }
+      if (d == null) {
+        return;
+      }
 
       d.forEach((v, n) => {
         if (n !== 'default') {
@@ -168,7 +213,7 @@ export default class ExportMap {
 
   reportErrors(context, declaration) {
     const msg = this.errors
-      .map((e) => `${e.message} (${e.lineNumber}:${e.column})`)
+      .map(e => `${e.message} (${e.lineNumber}:${e.column})`)
       .join(', ');
     context.report({
       node: declaration.source,

@@ -1,9 +1,10 @@
 import path from 'path';
-import moduleVisitor, { makeOptionsSchema } from '../core/moduleVisitor.js';
-import { isAbsolute } from '../core/importType.js';
-import docsUrl from '../docsUrl.js';
+import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
+import moduleVisitor, { makeOptionsSchema } from 'eslint-module-utils/moduleVisitor';
+import { isAbsolute } from '../core/importType';
+import docsUrl from '../docsUrl';
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -22,12 +23,13 @@ export default {
           node: source,
           message: 'Do not import modules using an absolute path',
           fix(fixer) {
-            const resolvedContext = context.getPhysicalFilename ? context.getPhysicalFilename() : context.getFilename();
             // node.js and web imports work with posix style paths ("/")
-            let relativePath = path.posix.relative(path.dirname(resolvedContext), source.value);
+            let relativePath = path.posix.relative(path.dirname(getPhysicalFilename(context)), source.value);
+
             if (!relativePath.startsWith('.')) {
               relativePath = `./${relativePath}`;
             }
+
             return fixer.replaceText(source, JSON.stringify(relativePath));
           },
         });
@@ -35,6 +37,7 @@ export default {
     }
 
     const options = { esmodule: true, commonjs: true, ...context.options[0] };
+
     return moduleVisitor(reportIfAbsolute, options);
   },
 };
