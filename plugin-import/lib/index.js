@@ -100,5 +100,5 @@ export const rules = {
 	'no-deprecated': noDeprecated,
 
 	// deprecated aliases to rules
-	'imports-first': importsFirst
+	'imports-first': importsFirst,
 };

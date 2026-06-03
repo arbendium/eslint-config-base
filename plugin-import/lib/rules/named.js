@@ -1,10 +1,9 @@
 import * as path from 'path';
 import { getFilename, getPhysicalFilename } from 'eslint-module-utils/contextCompat';
-
 import ExportMapBuilder from '../exportMap/builder';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
-export default {
+module.exports = {
   meta: {
     type: 'problem',
     docs: {
@@ -39,21 +38,23 @@ export default {
         return;
       }
 
-      if (!node.specifiers.some((im) => im.type === type)) {
+      if (!node.specifiers.some(im => im.type === type)) {
         return; // no named imports/exports
       }
 
       const imports = ExportMapBuilder.get(node.source.value, context);
+
       if (imports == null || imports.parseGoal === 'ambiguous') {
         return;
       }
 
       if (imports.errors.length) {
         imports.reportErrors(context, node);
+
         return;
       }
 
-      node.specifiers.forEach(function (im) {
+      node.specifiers.forEach(im => {
         if (
           im.type !== type
           // ignore type imports
@@ -69,7 +70,7 @@ export default {
         if (!deepLookup.found) {
           if (deepLookup.path.length > 1) {
             const deepPath = deepLookup.path
-              .map((i) => path.relative(path.dirname(getPhysicalFilename(context)), i.path))
+              .map(i => path.relative(path.dirname(getPhysicalFilename(context)), i.path))
               .join(' -> ');
 
             context.report(im[key], `${name} not found via ${deepPath}`);
@@ -110,10 +111,11 @@ export default {
 
       if (variableExports.errors.length) {
         variableExports.reportErrors(context, node);
+
         return;
       }
 
-      variableImports.forEach(function (im) {
+      variableImports.forEach(im => {
         if (im.type !== 'Property' || !im.key || im.key.type !== 'Identifier') {
           return;
         }
@@ -123,7 +125,7 @@ export default {
         if (!deepLookup.found) {
           if (deepLookup.path.length > 1) {
             const deepPath = deepLookup.path
-              .map((i) => path.relative(path.dirname(getFilename(context)), i.path))
+              .map(i => path.relative(path.dirname(getFilename(context)), i.path))
               .join(' -> ');
 
             context.report(im.key, `${im.key.name} not found via ${deepPath}`);

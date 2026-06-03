@@ -4,8 +4,7 @@
  */
 
 import { getScope } from 'eslint-module-utils/contextCompat';
-
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 const EXPORT_MESSAGE = 'Expected "export" or "export default"';
 const IMPORT_MESSAGE = 'Expected "import" instead of "require()"';
@@ -14,12 +13,19 @@ function normalizeLegacyOptions(options) {
   if (options.indexOf('allow-primitive-modules') >= 0) {
     return { allowPrimitiveModules: true };
   }
+
   return options[0] || {};
 }
 
 function allowPrimitive(node, options) {
-  if (!options.allowPrimitiveModules) { return false; }
-  if (node.parent.type !== 'AssignmentExpression') { return false; }
+  if (!options.allowPrimitiveModules) {
+    return false;
+  }
+
+  if (node.parent.type !== 'AssignmentExpression') {
+    return false;
+  }
+
   return node.parent.right.type !== 'ObjectExpression';
 }
 
@@ -45,7 +51,11 @@ function isConditional(node) {
   ) {
     return true;
   }
-  if (node.parent) { return isConditional(node.parent); }
+
+  if (node.parent) {
+    return isConditional(node.parent);
+  }
+
   return false;
 }
 
@@ -69,7 +79,7 @@ const schemaObject = {
   additionalProperties: false,
 };
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -100,10 +110,12 @@ export default {
     return {
 
       MemberExpression(node) {
-
         // module.exports
         if (node.object.name === 'module' && node.property.name === 'exports') {
-          if (allowPrimitive(node, options)) { return; }
+          if (allowPrimitive(node, options)) {
+            return;
+          }
+
           context.report({ node, message: EXPORT_MESSAGE });
         }
 
@@ -111,25 +123,41 @@ export default {
         if (node.object.name === 'exports') {
           const isInScope = getScope(context, node)
             .variables
-            .some((variable) => variable.name === 'exports');
+            .some(variable => variable.name === 'exports');
+
           if (!isInScope) {
             context.report({ node, message: EXPORT_MESSAGE });
           }
         }
-
       },
       CallExpression(call) {
-        if (!validateScope(getScope(context, call))) { return; }
+        if (!validateScope(getScope(context, call))) {
+          return;
+        }
 
-        if (call.callee.type !== 'Identifier') { return; }
-        if (call.callee.name !== 'require') { return; }
+        if (call.callee.type !== 'Identifier') {
+          return;
+        }
 
-        if (call.arguments.length !== 1) { return; }
-        if (!isLiteralString(call.arguments[0])) { return; }
+        if (call.callee.name !== 'require') {
+          return;
+        }
 
-        if (allowRequire(call, options)) { return; }
+        if (call.arguments.length !== 1) {
+          return;
+        }
 
-        if (allowConditionalRequire(call, options) && isConditional(call.parent)) { return; }
+        if (!isLiteralString(call.arguments[0])) {
+          return;
+        }
+
+        if (allowRequire(call, options)) {
+          return;
+        }
+
+        if (allowConditionalRequire(call, options) && isConditional(call.parent)) {
+          return;
+        }
 
         // keeping it simple: all 1-string-arg `require` calls are reported
         context.report({
@@ -138,6 +166,5 @@ export default {
         });
       },
     };
-
   },
 };

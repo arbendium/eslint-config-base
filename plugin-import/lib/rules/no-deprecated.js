@@ -1,19 +1,21 @@
 import declaredScope from 'eslint-module-utils/declaredScope';
 import ExportMapBuilder from '../exportMap/builder';
 import ExportMap from '../exportMap';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 function message(deprecation) {
   return `Deprecated${deprecation.description ? `: ${deprecation.description}` : '.'}`;
 }
 
 function getDeprecation(metadata) {
-  if (!metadata || !metadata.doc) { return; }
+  if (!metadata || !metadata.doc) {
+    return;
+  }
 
-  return metadata.doc.tags.find((t) => t.title === 'deprecated');
+  return metadata.doc.tags.find(t => t.title === 'deprecated');
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -29,29 +31,43 @@ export default {
     const namespaces = new Map();
 
     function checkSpecifiers(node) {
-      if (node.type !== 'ImportDeclaration') { return; }
-      if (node.source == null) { return; } // local export, ignore
+      if (node.type !== 'ImportDeclaration') {
+        return;
+      }
+
+      if (node.source == null) {
+        return;
+      } // local export, ignore
 
       const imports = ExportMapBuilder.get(node.source.value, context);
-      if (imports == null) { return; }
 
-      const moduleDeprecation = imports.doc && imports.doc.tags.find((t) => t.title === 'deprecated');
+      if (imports == null) {
+        return;
+      }
+
+      const moduleDeprecation = imports.doc && imports.doc.tags.find(t => t.title === 'deprecated');
+
       if (moduleDeprecation) {
         context.report({ node, message: message(moduleDeprecation) });
       }
 
       if (imports.errors.length) {
         imports.reportErrors(context, node);
+
         return;
       }
 
-      node.specifiers.forEach(function (im) {
+      node.specifiers.forEach(im => {
         let imported; let local;
-        switch (im.type) {
 
+        switch (im.type) {
           case 'ImportNamespaceSpecifier': {
-            if (!imports.size) { return; }
+            if (!imports.size) {
+              return;
+            }
+
             namespaces.set(im.local.name, imports);
+
             return;
           }
 
@@ -70,18 +86,25 @@ export default {
 
         // unknown thing can't be deprecated
         const exported = imports.get(imported);
-        if (exported == null) { return; }
+
+        if (exported == null) {
+          return;
+        }
 
         // capture import of deep namespace
-        if (exported.namespace) { namespaces.set(local, exported.namespace); }
+        if (exported.namespace) {
+          namespaces.set(local, exported.namespace);
+        }
 
         const deprecation = getDeprecation(imports.get(imported));
-        if (!deprecation) { return; }
+
+        if (!deprecation) {
+          return;
+        }
 
         context.report({ node: im, message: message(deprecation) });
 
         deprecated.set(local, deprecation);
-
       });
     }
 
@@ -94,11 +117,18 @@ export default {
         }
 
         // ignore specifier identifiers
-        if (node.parent.type.slice(0, 6) === 'Import') { return; }
+        if (node.parent.type.slice(0, 6) === 'Import') {
+          return;
+        }
 
-        if (!deprecated.has(node.name)) { return; }
+        if (!deprecated.has(node.name)) {
+          return;
+        }
 
-        if (declaredScope(context, node.name, node) !== 'module') { return; }
+        if (declaredScope(context, node.name, node) !== 'module') {
+          return;
+        }
+
         context.report({
           node,
           message: message(deprecated.get(node.name)),
@@ -106,22 +136,35 @@ export default {
       },
 
       MemberExpression(dereference) {
-        if (dereference.object.type !== 'Identifier') { return; }
-        if (!namespaces.has(dereference.object.name)) { return; }
+        if (dereference.object.type !== 'Identifier') {
+          return;
+        }
 
-        if (declaredScope(context, dereference.object.name, dereference) !== 'module') { return; }
+        if (!namespaces.has(dereference.object.name)) {
+          return;
+        }
+
+        if (declaredScope(context, dereference.object.name, dereference) !== 'module') {
+          return;
+        }
 
         // go deep
         let namespace = namespaces.get(dereference.object.name);
         const namepath = [dereference.object.name];
+
         // while property is namespace and parent is member expression, keep validating
         while (namespace instanceof ExportMap && dereference.type === 'MemberExpression') {
           // ignore computed parts for now
-          if (dereference.computed) { return; }
+          if (dereference.computed) {
+            return;
+          }
 
           const metadata = namespace.get(dereference.property.name);
 
-          if (!metadata) { break; }
+          if (!metadata) {
+            break;
+          }
+
           const deprecation = getDeprecation(metadata);
 
           if (deprecation) {

@@ -2,11 +2,10 @@ import { basename, dirname, relative } from 'path';
 import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
 import moduleVisitor, { makeOptionsSchema } from 'eslint-module-utils/moduleVisitor';
 import resolve from 'eslint-module-utils/resolve';
-
 import importType from '../core/importType';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -19,16 +18,19 @@ export default {
 
   create: function noRelativePackages(context) {
     const myPath = getPhysicalFilename(context);
-    if (myPath === '<text>') { return {}; } // can't check a non-file
 
-    function checkSourceValue(sourceNode) {
+    if (myPath === '<text>') {
+      return {};
+    } // can't check a non-file
+
+    function checkSourceValue(sourceNode, node, moduleSystem) {
       const depPath = sourceNode.value;
 
       if (importType(depPath, context) === 'external') { // ignore packages
         return;
       }
 
-      const absDepPath = resolve(depPath, context);
+      const absDepPath = resolve(depPath, context, moduleSystem);
 
       if (!absDepPath) { // unable to resolve path
         return;

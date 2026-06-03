@@ -1,11 +1,10 @@
 import path from 'path';
 import readPkgUp from 'eslint-module-utils/readPkgUp';
-
 import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
 import resolve from 'eslint-module-utils/resolve';
 import moduleVisitor, { makeOptionsSchema } from 'eslint-module-utils/moduleVisitor';
 import importType from '../core/importType';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 /** @param {string} filePath */
 function toPosixPath(filePath) {
@@ -14,19 +13,22 @@ function toPosixPath(filePath) {
 
 function findNamedPackage(filePath) {
   const found = readPkgUp({ cwd: filePath });
+
   if (found.pkg && !found.pkg.name) {
     return findNamedPackage(path.join(found.path, '../..'));
   }
+
   return found;
 }
 
-function checkImportForRelativePackage(context, importPath, node) {
+function checkImportForRelativePackage(context, importPath, node, moduleSystem) {
   const potentialViolationTypes = ['parent', 'index', 'sibling'];
+
   if (potentialViolationTypes.indexOf(importType(importPath, context)) === -1) {
     return;
   }
 
-  const resolvedImport = resolve(importPath, context);
+  const resolvedImport = resolve(importPath, context, moduleSystem);
   const resolvedContext = getPhysicalFilename(context);
 
   if (!resolvedImport || !resolvedContext) {
@@ -48,13 +50,12 @@ function checkImportForRelativePackage(context, importPath, node) {
     context.report({
       node,
       message: `Relative import from another package is not allowed. Use \`${properImport}\` instead of \`${importPath}\``,
-      fix: (fixer) => fixer.replaceText(node, JSON.stringify(toPosixPath(properImport)))
-      ,
+      fix: fixer => fixer.replaceText(node, JSON.stringify(toPosixPath(properImport))),
     });
   }
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -67,6 +68,6 @@ export default {
   },
 
   create(context) {
-    return moduleVisitor((source) => checkImportForRelativePackage(context, source.value, source), context.options[0]);
+    return moduleVisitor((source, node, moduleSystem) => checkImportForRelativePackage(context, source.value, source, moduleSystem), context.options[0]);
   },
 };

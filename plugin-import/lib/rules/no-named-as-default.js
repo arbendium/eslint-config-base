@@ -1,8 +1,8 @@
 import ExportMapBuilder from '../exportMap/builder';
 import importDeclaration from '../importDeclaration';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
-export default {
+module.exports = {
   meta: {
     type: 'problem',
     docs: {
@@ -22,15 +22,21 @@ export default {
       const analyzedName = defaultSpecifier[nameKey].name;
 
       // #566: default is a valid specifier
-      if (analyzedName === 'default') { return; }
+      if (analyzedName === 'default') {
+        return;
+      }
 
       const declaration = importDeclaration(context, defaultSpecifier);
       /** @type {import('../exportMap').default | null} */
       const importedModule = ExportMapBuilder.get(declaration.source.value, context);
-      if (importedModule == null) { return; }
+
+      if (importedModule == null) {
+        return;
+      }
 
       if (importedModule.errors.length > 0) {
         importedModule.reportErrors(context, declaration);
+
         return;
       }
 
@@ -75,9 +81,8 @@ export default {
 
       context.report(
         defaultSpecifier,
-        `Using exported name '${defaultSpecifier[nameKey].name}' as identifier for default ${nameKey === 'local' ? `import` : `export`}.`,
+        `Using exported name '${defaultSpecifier[nameKey].name}' as identifier for default ${nameKey === 'local' ? 'import' : 'export'}.`,
       );
-
     }
 
     return {

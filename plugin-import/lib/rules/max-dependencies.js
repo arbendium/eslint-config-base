@@ -1,5 +1,5 @@
 import moduleVisitor from 'eslint-module-utils/moduleVisitor';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 const DEFAULT_MAX = 10;
 const DEFAULT_IGNORE_TYPE_IMPORTS = false;
@@ -13,7 +13,7 @@ const countDependencies = (dependencies, lastNode, context) => {
   }
 };
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -51,6 +51,7 @@ export default {
           if (importKind !== TYPE_IMPORT || !ignoreTypeImports) {
             dependencies.add(source.value);
           }
+
           lastNode = source;
         },
         { commonjs: true },

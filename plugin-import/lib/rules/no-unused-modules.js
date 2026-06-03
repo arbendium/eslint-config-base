@@ -13,10 +13,9 @@ import readPkgUp from 'eslint-module-utils/readPkgUp';
 import values from 'object.values';
 import includes from 'array-includes';
 import flatMap from 'array.prototype.flatmap';
-
 import ExportMapBuilder from '../exportMap/builder';
 import recursivePatternCapture from '../exportMap/patternCapture';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 /**
  * Attempt to load the internal `FileEnumerator` class, which has existed in a couple
@@ -46,6 +45,7 @@ function requireFileEnumerator() {
       }
     }
   }
+
   return FileEnumerator;
 }
 
@@ -103,6 +103,7 @@ See https://github.com/import-js/eslint-plugin-import/issues/3079
 for additional context.
 `);
     }
+
     // If this isn't the case, then we'll just let the error bubble up
     throw e;
   }
@@ -139,7 +140,7 @@ function listFilesWithLegacyFunctions(src, extensions) {
     const patterns = src.concat(
       flatMap(
         src,
-        (pattern) => extensions.map((extension) => (/\*\*|\*\./).test(pattern) ? pattern : `${pattern}/**/*${extension}`),
+        pattern => extensions.map(extension => (/\*\*|\*\./).test(pattern) ? pattern : `${pattern}/**/*${extension}`),
       ),
     );
 
@@ -161,6 +162,7 @@ function listFilesToProcess(src, extensions) {
   if (FileEnumerator) {
     return listFilesUsingFileEnumerator(FileEnumerator, src, extensions);
   }
+
   // If not, then we can try even older versions of this capability (listFilesToProcess)
   return listFilesWithLegacyFunctions(src, extensions);
 }
@@ -197,7 +199,7 @@ function forEachDeclarationIdentifier(declaration, cb) {
     } else if (declaration.type === VARIABLE_DECLARATION) {
       declaration.declarations.forEach(({ id }) => {
         if (id.type === OBJECT_PATTERN) {
-          recursivePatternCapture(id, (pattern) => {
+          recursivePatternCapture(id, pattern => {
             if (pattern.type === IDENTIFIER) {
               cb(pattern.name, false);
             }
@@ -268,7 +270,7 @@ const visitorKeyMap = new Map();
 const ignoredFiles = new Set();
 const filesOutsideSrc = new Set();
 
-const isNodeModule = (path) => (/\/(node_modules)\//).test(path);
+const isNodeModule = path => (/\/(node_modules)\//).test(path);
 
 /**
  * read all files matching the patterns in src and ignoreExports
@@ -286,14 +288,14 @@ function resolveFiles(src, ignoreExports, context) {
 
   // The modern api will return a list of file paths, rather than an object
   if (ignoredFilesList.length && typeof ignoredFilesList[0] === 'string') {
-    ignoredFilesList.forEach((filename) => ignoredFiles.add(filename));
+    ignoredFilesList.forEach(filename => ignoredFiles.add(filename));
   } else {
     ignoredFilesList.forEach(({ filename }) => ignoredFiles.add(filename));
   }
 
   // prepare list of source files, don't consider files from node_modules
   const resolvedFiles = srcFileList.length && typeof srcFileList[0] === 'string'
-    ? srcFileList.filter((filePath) => !isNodeModule(filePath))
+    ? srcFileList.filter(filePath => !isNodeModule(filePath))
     : flatMap(srcFileList, ({ filename }) => isNodeModule(filename) ? [] : filename);
 
   return new Set(resolvedFiles);
@@ -304,10 +306,11 @@ function resolveFiles(src, ignoreExports, context) {
  */
 const prepareImportsAndExports = (srcFiles, context) => {
   const exportAll = new Map();
-  srcFiles.forEach((file) => {
+  srcFiles.forEach(file => {
     const exports = new Map();
     const imports = new Map();
     const currentExports = ExportMapBuilder.get(file, context);
+
     if (currentExports) {
       const {
         dependencies,
@@ -320,8 +323,9 @@ const prepareImportsAndExports = (srcFiles, context) => {
       visitorKeyMap.set(file, visitorKeys);
       // dependencies === export * from
       const currentExportAll = new Set();
-      dependencies.forEach((getDependency) => {
+      dependencies.forEach(getDependency => {
         const dependency = getDependency();
+
         if (dependency === null) {
           return;
         }
@@ -336,22 +340,28 @@ const prepareImportsAndExports = (srcFiles, context) => {
         } else {
           exports.set(key, { whereUsed: new Set() });
         }
+
         const reexport = value.getImport();
+
         if (!reexport) {
           return;
         }
+
         let localImport = imports.get(reexport.path);
         let currentValue;
+
         if (value.local === DEFAULT) {
           currentValue = IMPORT_DEFAULT_SPECIFIER;
         } else {
           currentValue = value.local;
         }
+
         if (typeof localImport !== 'undefined') {
           localImport = new Set([...localImport, currentValue]);
         } else {
           localImport = new Set([currentValue]);
         }
+
         imports.set(reexport.path, localImport);
       });
 
@@ -359,9 +369,10 @@ const prepareImportsAndExports = (srcFiles, context) => {
         if (isNodeModule(key)) {
           return;
         }
+
         const localImport = imports.get(key) || new Set();
         value.declarations.forEach(({ importedSpecifiers }) => {
-          importedSpecifiers.forEach((specifier) => {
+          importedSpecifiers.forEach(specifier => {
             localImport.add(specifier);
           });
         });
@@ -373,6 +384,7 @@ const prepareImportsAndExports = (srcFiles, context) => {
       if (ignoredFiles.has(file)) {
         return;
       }
+
       namespace.forEach((value, key) => {
         if (key === DEFAULT) {
           exports.set(IMPORT_DEFAULT_SPECIFIER, { whereUsed: new Set() });
@@ -381,13 +393,15 @@ const prepareImportsAndExports = (srcFiles, context) => {
         }
       });
     }
+
     exports.set(EXPORT_ALL_DECLARATION, { whereUsed: new Set() });
     exports.set(IMPORT_NAMESPACE_SPECIFIER, { whereUsed: new Set() });
     exportList.set(file, exports);
   });
   exportAll.forEach((value, key) => {
-    value.forEach((val) => {
+    value.forEach(val => {
       const currentExports = exportList.get(val);
+
       if (currentExports) {
         const currentExport = currentExports.get(EXPORT_ALL_DECLARATION);
         currentExport.whereUsed.add(key);
@@ -404,9 +418,11 @@ const determineUsage = () => {
   importList.forEach((listValue, listKey) => {
     listValue.forEach((value, key) => {
       const exports = exportList.get(key);
+
       if (typeof exports !== 'undefined') {
-        value.forEach((currentImport) => {
+        value.forEach(currentImport => {
           let specifier;
+
           if (currentImport === IMPORT_NAMESPACE_SPECIFIER) {
             specifier = IMPORT_NAMESPACE_SPECIFIER;
           } else if (currentImport === IMPORT_DEFAULT_SPECIFIER) {
@@ -414,8 +430,10 @@ const determineUsage = () => {
           } else {
             specifier = currentImport;
           }
+
           if (typeof specifier !== 'undefined') {
             const exportStatement = exports.get(specifier);
+
             if (typeof exportStatement !== 'undefined') {
               const { whereUsed } = exportStatement;
               whereUsed.add(listKey);
@@ -428,10 +446,11 @@ const determineUsage = () => {
   });
 };
 
-const getSrc = (src) => {
+const getSrc = src => {
   if (src) {
     return src;
   }
+
   return [process.cwd()];
 };
 
@@ -442,12 +461,14 @@ const getSrc = (src) => {
 /** @type {Set<string>} */
 let srcFiles;
 let lastPrepareKey;
+
 const doPreparation = (src, ignoreExports, context) => {
   const prepareKey = JSON.stringify({
     src: (src || []).sort(),
     ignoreExports: (ignoreExports || []).sort(),
     extensions: Array.from(getFileExtensions(context.settings)).sort(),
   });
+
   if (prepareKey === lastPrepareKey) {
     return;
   }
@@ -463,29 +484,29 @@ const doPreparation = (src, ignoreExports, context) => {
   lastPrepareKey = prepareKey;
 };
 
-const newNamespaceImportExists = (specifiers) => specifiers.some(({ type }) => type === IMPORT_NAMESPACE_SPECIFIER);
+const newNamespaceImportExists = specifiers => specifiers.some(({ type }) => type === IMPORT_NAMESPACE_SPECIFIER);
 
-const newDefaultImportExists = (specifiers) => specifiers.some(({ type }) => type === IMPORT_DEFAULT_SPECIFIER);
+const newDefaultImportExists = specifiers => specifiers.some(({ type }) => type === IMPORT_DEFAULT_SPECIFIER);
 
-const fileIsInPkg = (file) => {
+const fileIsInPkg = file => {
   const { path, pkg } = readPkgUp({ cwd: file });
   const basePath = dirname(path);
 
-  const checkPkgFieldString = (pkgField) => {
+  const checkPkgFieldString = pkgField => {
     if (join(basePath, pkgField) === file) {
       return true;
     }
   };
 
-  const checkPkgFieldObject = (pkgField) => {
-    const pkgFieldFiles = flatMap(values(pkgField), (value) => typeof value === 'boolean' ? [] : join(basePath, value));
+  const checkPkgFieldObject = pkgField => {
+    const pkgFieldFiles = flatMap(values(pkgField), value => typeof value === 'boolean' ? [] : join(basePath, value));
 
     if (includes(pkgFieldFiles, file)) {
       return true;
     }
   };
 
-  const checkPkgField = (pkgField) => {
+  const checkPkgField = pkgField => {
     if (typeof pkgField === 'string') {
       return checkPkgFieldString(pkgField);
     }
@@ -520,7 +541,7 @@ const fileIsInPkg = (file) => {
   return false;
 };
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -596,7 +617,7 @@ export default {
 
     const file = getPhysicalFilename(context);
 
-    const checkExportPresence = (node) => {
+    const checkExportPresence = node => {
       if (!missingExports) {
         return;
       }
@@ -611,11 +632,13 @@ export default {
 
       exportCount.delete(EXPORT_ALL_DECLARATION);
       exportCount.delete(IMPORT_NAMESPACE_SPECIFIER);
+
       if (exportCount.size < 1) {
         // node.body[0] === 'undefined' only happens, if everything is commented out in the file
         // being linted
         context.report(node.body[0] ? node.body[0] : node, 'No exports found');
       }
+
       exportCount.set(EXPORT_ALL_DECLARATION, exportAll);
       exportCount.set(IMPORT_NAMESPACE_SPECIFIER, namespaceImports);
     };
@@ -644,8 +667,10 @@ export default {
       // make sure file to be linted is included in source files
       if (!srcFiles.has(file)) {
         srcFiles = resolveFiles(getSrc(src), ignoreExports, context);
+
         if (!srcFiles.has(file)) {
           filesOutsideSrc.add(file);
+
           return;
         }
       }
@@ -658,6 +683,7 @@ export default {
 
       // special case: export * from
       const exportAll = exports.get(EXPORT_ALL_DECLARATION);
+
       if (typeof exportAll !== 'undefined' && exportedValue !== IMPORT_DEFAULT_SPECIFIER) {
         if (exportAll.whereUsed.size > 0) {
           return;
@@ -666,6 +692,7 @@ export default {
 
       // special case: namespace import
       const namespaceImports = exports.get(IMPORT_NAMESPACE_SPECIFIER);
+
       if (typeof namespaceImports !== 'undefined') {
         if (namespaceImports.whereUsed.size > 0) {
           return;
@@ -699,7 +726,7 @@ export default {
      *
      * update lists of existing exports during runtime
      */
-    const updateExportUsage = (node) => {
+    const updateExportUsage = node => {
       if (ignoredFiles.has(file)) {
         return;
       }
@@ -719,15 +746,17 @@ export default {
         if (type === EXPORT_DEFAULT_DECLARATION) {
           newExportIdentifiers.add(IMPORT_DEFAULT_SPECIFIER);
         }
+
         if (type === EXPORT_NAMED_DECLARATION) {
           if (specifiers.length > 0) {
-            specifiers.forEach((specifier) => {
+            specifiers.forEach(specifier => {
               if (specifier.exported) {
                 newExportIdentifiers.add(specifier.exported.name || specifier.exported.value);
               }
             });
           }
-          forEachDeclarationIdentifier(declaration, (name) => {
+
+          forEachDeclarationIdentifier(declaration, name => {
             newExportIdentifiers.add(name);
           });
         }
@@ -741,7 +770,7 @@ export default {
       });
 
       // new export identifiers added: add to map of new exports
-      newExportIdentifiers.forEach((key) => {
+      newExportIdentifiers.forEach(key => {
         if (!exports.has(key)) {
           newExports.set(key, { whereUsed: new Set() });
         }
@@ -765,12 +794,13 @@ export default {
      *
      * update lists of existing imports during runtime
      */
-    const updateImportUsage = (node) => {
+    const updateImportUsage = node => {
       if (!unusedExports) {
         return;
       }
 
       let oldImportPaths = importList.get(file);
+
       if (typeof oldImportPaths === 'undefined') {
         oldImportPaths = new Map();
       }
@@ -790,13 +820,16 @@ export default {
         if (value.has(EXPORT_ALL_DECLARATION)) {
           oldExportAll.add(key);
         }
+
         if (value.has(IMPORT_NAMESPACE_SPECIFIER)) {
           oldNamespaceImports.add(key);
         }
+
         if (value.has(IMPORT_DEFAULT_SPECIFIER)) {
           oldDefaultImports.add(key);
         }
-        value.forEach((val) => {
+
+        value.forEach(val => {
           if (
             val !== IMPORT_NAMESPACE_SPECIFIER
             && val !== IMPORT_DEFAULT_SPECIFIER
@@ -810,10 +843,13 @@ export default {
         if (source.type !== 'Literal') {
           return null;
         }
+
         const p = resolve(source.value, context);
+
         if (p == null) {
           return null;
         }
+
         newNamespaceImports.add(p);
       }
 
@@ -828,15 +864,16 @@ export default {
         },
       });
 
-      node.body.forEach((astNode) => {
+      node.body.forEach(astNode => {
         let resolvedPath;
 
         // support for export { value } from 'module'
         if (astNode.type === EXPORT_NAMED_DECLARATION) {
           if (astNode.source) {
             resolvedPath = resolve(astNode.source.raw.replace(/('|")/g, ''), context);
-            astNode.specifiers.forEach((specifier) => {
+            astNode.specifiers.forEach(specifier => {
               const name = specifier.local.name || specifier.local.value;
+
               if (name === DEFAULT) {
                 newDefaultImports.add(resolvedPath);
               } else {
@@ -853,6 +890,7 @@ export default {
 
         if (astNode.type === IMPORT_DECLARATION) {
           resolvedPath = resolve(astNode.source.raw.replace(/('|")/g, ''), context);
+
           if (!resolvedPath) {
             return;
           }
@@ -870,24 +908,27 @@ export default {
           }
 
           astNode.specifiers
-            .filter((specifier) => specifier.type !== IMPORT_DEFAULT_SPECIFIER && specifier.type !== IMPORT_NAMESPACE_SPECIFIER)
-            .forEach((specifier) => {
+            .filter(specifier => specifier.type !== IMPORT_DEFAULT_SPECIFIER && specifier.type !== IMPORT_NAMESPACE_SPECIFIER)
+            .forEach(specifier => {
               newImports.set(specifier.imported.name || specifier.imported.value, resolvedPath);
             });
         }
       });
 
-      newExportAll.forEach((value) => {
+      newExportAll.forEach(value => {
         if (!oldExportAll.has(value)) {
           let imports = oldImportPaths.get(value);
+
           if (typeof imports === 'undefined') {
             imports = new Set();
           }
+
           imports.add(EXPORT_ALL_DECLARATION);
           oldImportPaths.set(value, imports);
 
           let exports = exportList.get(value);
           let currentExport;
+
           if (typeof exports !== 'undefined') {
             currentExport = exports.get(EXPORT_ALL_DECLARATION);
           } else {
@@ -905,14 +946,16 @@ export default {
         }
       });
 
-      oldExportAll.forEach((value) => {
+      oldExportAll.forEach(value => {
         if (!newExportAll.has(value)) {
           const imports = oldImportPaths.get(value);
           imports.delete(EXPORT_ALL_DECLARATION);
 
           const exports = exportList.get(value);
+
           if (typeof exports !== 'undefined') {
             const currentExport = exports.get(EXPORT_ALL_DECLARATION);
+
             if (typeof currentExport !== 'undefined') {
               currentExport.whereUsed.delete(file);
             }
@@ -920,17 +963,20 @@ export default {
         }
       });
 
-      newDefaultImports.forEach((value) => {
+      newDefaultImports.forEach(value => {
         if (!oldDefaultImports.has(value)) {
           let imports = oldImportPaths.get(value);
+
           if (typeof imports === 'undefined') {
             imports = new Set();
           }
+
           imports.add(IMPORT_DEFAULT_SPECIFIER);
           oldImportPaths.set(value, imports);
 
           let exports = exportList.get(value);
           let currentExport;
+
           if (typeof exports !== 'undefined') {
             currentExport = exports.get(IMPORT_DEFAULT_SPECIFIER);
           } else {
@@ -948,14 +994,16 @@ export default {
         }
       });
 
-      oldDefaultImports.forEach((value) => {
+      oldDefaultImports.forEach(value => {
         if (!newDefaultImports.has(value)) {
           const imports = oldImportPaths.get(value);
           imports.delete(IMPORT_DEFAULT_SPECIFIER);
 
           const exports = exportList.get(value);
+
           if (typeof exports !== 'undefined') {
             const currentExport = exports.get(IMPORT_DEFAULT_SPECIFIER);
+
             if (typeof currentExport !== 'undefined') {
               currentExport.whereUsed.delete(file);
             }
@@ -963,17 +1011,20 @@ export default {
         }
       });
 
-      newNamespaceImports.forEach((value) => {
+      newNamespaceImports.forEach(value => {
         if (!oldNamespaceImports.has(value)) {
           let imports = oldImportPaths.get(value);
+
           if (typeof imports === 'undefined') {
             imports = new Set();
           }
+
           imports.add(IMPORT_NAMESPACE_SPECIFIER);
           oldImportPaths.set(value, imports);
 
           let exports = exportList.get(value);
           let currentExport;
+
           if (typeof exports !== 'undefined') {
             currentExport = exports.get(IMPORT_NAMESPACE_SPECIFIER);
           } else {
@@ -991,14 +1042,16 @@ export default {
         }
       });
 
-      oldNamespaceImports.forEach((value) => {
+      oldNamespaceImports.forEach(value => {
         if (!newNamespaceImports.has(value)) {
           const imports = oldImportPaths.get(value);
           imports.delete(IMPORT_NAMESPACE_SPECIFIER);
 
           const exports = exportList.get(value);
+
           if (typeof exports !== 'undefined') {
             const currentExport = exports.get(IMPORT_NAMESPACE_SPECIFIER);
+
             if (typeof currentExport !== 'undefined') {
               currentExport.whereUsed.delete(file);
             }
@@ -1009,14 +1062,17 @@ export default {
       newImports.forEach((value, key) => {
         if (!oldImports.has(key)) {
           let imports = oldImportPaths.get(value);
+
           if (typeof imports === 'undefined') {
             imports = new Set();
           }
+
           imports.add(key);
           oldImportPaths.set(value, imports);
 
           let exports = exportList.get(value);
           let currentExport;
+
           if (typeof exports !== 'undefined') {
             currentExport = exports.get(key);
           } else {
@@ -1040,8 +1096,10 @@ export default {
           imports.delete(key);
 
           const exports = exportList.get(value);
+
           if (typeof exports !== 'undefined') {
             const currentExport = exports.get(key);
+
             if (typeof currentExport !== 'undefined') {
               currentExport.whereUsed.delete(file);
             }
@@ -1060,7 +1118,7 @@ export default {
         checkUsage(node, IMPORT_DEFAULT_SPECIFIER, false);
       },
       ExportNamedDeclaration(node) {
-        node.specifiers.forEach((specifier) => {
+        node.specifiers.forEach(specifier => {
           checkUsage(specifier, specifier.exported.name || specifier.exported.value, false);
         });
         forEachDeclarationIdentifier(node.declaration, (name, isTypeExport) => {

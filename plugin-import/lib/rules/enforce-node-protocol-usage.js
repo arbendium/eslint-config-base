@@ -1,7 +1,5 @@
-'use strict';
-
 const isCoreModule = require('is-core-module');
-const { default: docsUrl } = require('../docsUrl.js');
+const { default: docsUrl } = require('../docsUrl');
 
 const DO_PREFER_MESSAGE_ID = 'requireNodeProtocol';
 const NEVER_PREFER_MESSAGE_ID = 'forbidNodeProtocol';
@@ -44,11 +42,19 @@ function isStaticRequireWith1Param(node) {
 
 function checkAndReport(src, context) {
   // TODO use src.quasis[0].value.raw
-  if (!src || src.type === 'TemplateLiteral') { return; }
+  if (!src || src.type === 'TemplateLiteral') {
+    return;
+  }
+
   const moduleName = 'value' in src ? src.value : src.name;
-  if (typeof moduleName !== 'string') { console.log(src, moduleName); }
+
+  if (typeof moduleName !== 'string') {
+    console.log(src, moduleName);
+  }
+
   const { settings } = context;
   const nodeVersion = settings && settings['import/node-version'];
+
   if (
     typeof nodeVersion !== 'undefined'
     && (
@@ -60,10 +66,15 @@ function checkAndReport(src, context) {
   }
 
   if (context.options[0] === 'never') {
-    if (!moduleName.startsWith('node:')) { return; }
+    if (!moduleName.startsWith('node:')) {
+      return;
+    }
 
     const actualModuleName = moduleName.slice(5);
-    if (!isCoreModule(actualModuleName, nodeVersion || undefined)) { return; }
+
+    if (!isCoreModule(actualModuleName, nodeVersion || undefined)) {
+      return;
+    }
 
     context.report({
       node: src,
@@ -100,7 +111,7 @@ function checkAndReport(src, context) {
 }
 
 /** @type {import('eslint').Rule.RuleModule} */
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -125,7 +136,9 @@ export default {
   create(context) {
     return {
       CallExpression(node) {
-        if (!isStaticRequireWith1Param(node)) { return; }
+        if (!isStaticRequireWith1Param(node)) {
+          return;
+        }
 
         const arg = node.arguments[0];
 
@@ -138,7 +151,9 @@ export default {
         return checkAndReport(node.source, context);
       },
       ImportExpression(node) {
-        if (!isStringLiteral(node.source)) { return; }
+        if (!isStringLiteral(node.source)) {
+          return;
+        }
 
         return checkAndReport(node.source, context);
       },

@@ -1,9 +1,6 @@
 import fs from 'fs';
-
 import doctrine from 'doctrine';
-
 import debug from 'debug';
-
 import parse from 'eslint-module-utils/parse.js';
 import visit from 'eslint-module-utils/visit.js';
 import resolve from 'eslint-module-utils/resolve.js';
@@ -26,14 +23,16 @@ const exportCache = new Map();
  * caused memory leaks. See #1266.
  */
 function thunkFor(p, context) {
-  // eslint-disable-next-line no-use-before-define
   return () => ExportMapBuilder.for(childContext(p, context));
 }
 
 export default class ExportMapBuilder {
   static get(source, context) {
     const path = resolve(source, context);
-    if (path == null) { return null; }
+
+    if (path == null) {
+      return null;
+    }
 
     return ExportMapBuilder.for(childContext(path, context));
   }
@@ -45,9 +44,12 @@ export default class ExportMapBuilder {
     let exportMap = exportCache.get(cacheKey);
 
     // return cached ignore
-    if (exportMap === null) { return null; }
+    if (exportMap === null) {
+      return null;
+    }
 
     const stats = fs.statSync(path);
+
     if (exportMap != null) {
       // date equality check
       if (exportMap.mtime - stats.mtime === 0) {
@@ -59,6 +61,7 @@ export default class ExportMapBuilder {
     // check valid extensions first
     if (!hasValidExtension(path, context)) {
       exportCache.set(cacheKey, null);
+
       return null;
     }
 
@@ -66,6 +69,7 @@ export default class ExportMapBuilder {
     if (isIgnored(path, context)) {
       log('ignored path due to ignore settings:', path);
       exportCache.set(cacheKey, null);
+
       return null;
     }
 
@@ -75,6 +79,7 @@ export default class ExportMapBuilder {
     if (!unambiguous.test(content)) {
       log('ignored path due to unambiguous regex:', path);
       exportCache.set(cacheKey, null);
+
       return null;
     }
 
@@ -85,6 +90,7 @@ export default class ExportMapBuilder {
     if (exportMap == null) {
       log('ignored path due to ambiguous parse:', path);
       exportCache.set(cacheKey, null);
+
       return null;
     }
 
@@ -95,6 +101,7 @@ export default class ExportMapBuilder {
     if (exportMap.visitorKeys) {
       exportCache.set(cacheKey, exportMap);
     }
+
     return exportMap;
   }
 
@@ -104,12 +111,14 @@ export default class ExportMapBuilder {
 
     let ast;
     let visitorKeys;
+
     try {
       const result = parse(path, content, context);
       ast = result.ast;
       visitorKeys = result.visitorKeys;
     } catch (err) {
       exportMap.errors.push(err);
+
       return exportMap; // can't continue
     }
 
@@ -121,13 +130,17 @@ export default class ExportMapBuilder {
 
     function processDynamicImport(source) {
       hasDynamicImports = true;
+
       if (source.type !== 'Literal') {
         return null;
       }
+
       const p = remotePathResolver.resolve(source.value);
+
       if (p == null) {
         return null;
       }
+
       const importedSpecifiers = new Set();
       importedSpecifiers.add('ImportNamespaceSpecifier');
       const getter = thunkFor(p, context);
@@ -157,19 +170,28 @@ export default class ExportMapBuilder {
     });
 
     const unambiguouslyESM = unambiguous.isModule(ast);
-    if (!unambiguouslyESM && !hasDynamicImports) { return null; }
+
+    if (!unambiguouslyESM && !hasDynamicImports) {
+      return null;
+    }
 
     // attempt to collect module doc
     if (ast.comments) {
-      ast.comments.some((c) => {
-        if (c.type !== 'Block') { return false; }
+      ast.comments.some(c => {
+        if (c.type !== 'Block') {
+          return false;
+        }
+
         try {
           const doc = doctrine.parse(c.value, { unwrap: true });
-          if (doc.tags.some((t) => t.title === 'module')) {
+
+          if (doc.tags.some(t => t.title === 'module')) {
             exportMap.doc = doc;
+
             return true;
           }
         } catch (err) { /* ignore */ }
+
         return false;
       });
     }
@@ -184,7 +206,7 @@ export default class ExportMapBuilder {
       isEsModuleInteropTrue,
       thunkFor,
     );
-    ast.body.forEach(function (astNode) {
+    ast.body.forEach(astNode => {
       const visitor = visitorBuilder.build(astNode);
 
       if (visitor[astNode.type]) {
@@ -203,6 +225,7 @@ export default class ExportMapBuilder {
     if (unambiguouslyESM) {
       exportMap.parseGoal = 'Module';
     }
+
     return exportMap;
   }
 }

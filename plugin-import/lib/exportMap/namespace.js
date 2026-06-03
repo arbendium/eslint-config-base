@@ -15,17 +15,25 @@ export default class Namespace {
 
   resolveImport(value) {
     const rp = this.remotePathResolver.resolve(value);
-    if (rp == null) { return null; }
+
+    if (rp == null) {
+      return null;
+    }
+
     return this.ExportMapBuilder.for(childContext(rp, this.context));
   }
 
   getNamespace(identifier) {
-    if (!this.namespaces.has(identifier.name)) { return; }
+    if (!this.namespaces.has(identifier.name)) {
+      return;
+    }
+
     return () => this.resolveImport(this.namespaces.get(identifier.name));
   }
 
   add(object, identifier) {
     const nsfn = this.getNamespace(identifier);
+
     if (nsfn) {
       Object.defineProperty(object, 'namespace', { get: nsfn });
     }

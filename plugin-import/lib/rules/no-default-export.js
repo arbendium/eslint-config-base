@@ -1,9 +1,8 @@
 import { getSourceCode } from 'eslint-module-utils/contextCompat';
-
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 import sourceType from '../core/sourceType';
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -31,13 +30,14 @@ export default {
 
       ExportNamedDeclaration(node) {
         node.specifiers
-          .filter((specifier) => (specifier.exported.name || specifier.exported.value) === 'default')
-          .forEach((specifier) => {
+          .filter(specifier => (specifier.exported.name || specifier.exported.value) === 'default')
+          .forEach(specifier => {
             const { loc } = getSourceCode(context).getFirstTokens(node)[1] || {};
+
             if (specifier.type === 'ExportDefaultSpecifier') {
               context.report({ node, message: preferNamed, loc });
             } else if (specifier.type === 'ExportSpecifier') {
-              context.report({ node, message: noAliasDefault(specifier), loc  });
+              context.report({ node, message: noAliasDefault(specifier), loc });
             }
           });
       },

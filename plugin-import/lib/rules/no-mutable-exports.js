@@ -1,9 +1,8 @@
 import { getScope } from 'eslint-module-utils/contextCompat';
-
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 /** @type {import('eslint').Rule.RuleModule} */
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -17,6 +16,7 @@ export default {
   create(context) {
     function checkDeclaration(node) {
       const { kind } = node;
+
       if (kind === 'var' || kind === 'let') {
         context.report(node, `Exporting mutable '${kind}' binding, use 'const' instead.`);
       }
@@ -25,11 +25,11 @@ export default {
     /** @type {(scope: import('eslint').Scope.Scope, name: string) => void} */
     function checkDeclarationsInScope({ variables }, name) {
       variables
-        .filter((variable) => variable.name === name)
-        .forEach((variable) => {
+        .filter(variable => variable.name === name)
+        .forEach(variable => {
           variable.defs
-            .filter((def) => def.type === 'Variable' && def.parent)
-            .forEach((def) => {
+            .filter(def => def.type === 'Variable' && def.parent)
+            .forEach(def => {
               checkDeclaration(def.parent);
             });
         });
@@ -49,10 +49,10 @@ export default {
       ExportNamedDeclaration(node) {
         const scope = getScope(context, node);
 
-        if ('declaration' in node && node.declaration)  {
+        if ('declaration' in node && node.declaration) {
           checkDeclaration(node.declaration);
         } else if (!('source' in node) || !node.source) {
-          node.specifiers.forEach((specifier) => {
+          node.specifiers.forEach(specifier => {
             checkDeclarationsInScope(scope, specifier.local.name);
           });
         }

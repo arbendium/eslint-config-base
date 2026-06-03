@@ -1,4 +1,4 @@
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 const first = require('./first');
 
@@ -12,4 +12,4 @@ const newMeta = {
   },
 };
 
-export default { ...first, meta: newMeta };
+module.exports = { ...first, meta: newMeta };

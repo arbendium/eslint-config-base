@@ -3,12 +3,16 @@
  * @author Thomas Grainger
  */
 
+import path from 'node:path';
 import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
 import { getFileExtensions } from 'eslint-module-utils/ignore';
 import moduleVisitor from 'eslint-module-utils/moduleVisitor';
 import resolve from 'eslint-module-utils/resolve';
-import path from 'path';
 import docsUrl from '../docsUrl.js';
+
+/**
+ * @import { Rule } from 'eslint'
+ */
 
 /**
  * convert a potentially relative path from node utils into a true
@@ -22,7 +26,7 @@ import docsUrl from '../docsUrl.js';
  *
  * @param relativePath {string} relative posix path potentially missing leading './'
  * @returns {string} relative posix path that always starts with a ./
- **/
+ */
 function toRelativePath(relativePath) {
   const stripped = relativePath.replace(/\/$/g, ''); // Remove trailing /
 
@@ -34,9 +38,10 @@ function normalize(fn) {
 }
 
 function countRelativeParents(pathSegments) {
-  return pathSegments.filter((x) => x === '..').length;
+  return pathSegments.filter(x => x === '..').length;
 }
 
+/** @type {Rule.RuleModule} */
 export default {
   meta: {
     type: 'suggestion',
@@ -61,10 +66,10 @@ export default {
   },
 
   create(context) {
-    const currentDir = path.dirname(context.getPhysicalFilename());
+    const currentDir = path.dirname(getPhysicalFilename(context));
     const options = context.options[0];
 
-    function checkSourceValue(source) {
+    function checkSourceValue(source, node, moduleSystem) {
       const { value: importPath } = source;
 
       function reportWithProposedPath(proposedPath) {
@@ -72,7 +77,7 @@ export default {
           node: source,
           // Note: Using messageIds is not possible due to the support for ESLint 2 and 3
           message: `Useless path segments for "${importPath}", should be "${proposedPath}"`,
-          fix: (fixer) => proposedPath && fixer.replaceText(source, JSON.stringify(proposedPath)),
+          fix: fixer => proposedPath && fixer.replaceText(source, JSON.stringify(proposedPath)),
         });
       }
 
@@ -82,9 +87,10 @@ export default {
       }
 
       // Report rule violation if path is not the shortest possible
-      const resolvedPath = resolve(importPath, context);
+      const resolvedPath = resolve(importPath, context, moduleSystem);
       const normedPath = normalize(importPath);
-      const resolvedNormedPath = resolve(normedPath, context);
+      const resolvedNormedPath = resolve(normedPath, context, moduleSystem);
+
       if (normedPath !== importPath && resolvedPath === resolvedNormedPath) {
         return reportWithProposedPath(normedPath);
       }
@@ -101,7 +107,7 @@ export default {
         // Try to find ambiguous imports
         if (parentDirectory !== '.' && parentDirectory !== '..') {
           for (const fileExtension of fileExtensions) {
-            if (resolve(`${parentDirectory}${fileExtension}`, context)) {
+            if (resolve(`${parentDirectory}${fileExtension}`, context, moduleSystem)) {
               return reportWithProposedPath(`${parentDirectory}/`);
             }
           }

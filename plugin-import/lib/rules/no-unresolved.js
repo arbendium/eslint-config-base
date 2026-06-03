@@ -6,9 +6,9 @@
 import resolve, { CASE_SENSITIVE_FS, fileExistsWithCaseSync } from 'eslint-module-utils/resolve';
 import ModuleCache from 'eslint-module-utils/ModuleCache';
 import moduleVisitor, { makeOptionsSchema } from 'eslint-module-utils/moduleVisitor';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
-export default {
+module.exports = {
   meta: {
     type: 'problem',
     docs: {
@@ -28,7 +28,7 @@ export default {
   create(context) {
     const options = context.options[0] || {};
 
-    function checkSourceValue(source, node) {
+    function checkSourceValue(source, node, moduleSystem) {
       // ignore type-only imports and exports
       if (node.importKind === 'type' || node.exportKind === 'type') {
         return;
@@ -37,7 +37,7 @@ export default {
       const caseSensitive = !CASE_SENSITIVE_FS && options.caseSensitive !== false;
       const caseSensitiveStrict = !CASE_SENSITIVE_FS && options.caseSensitiveStrict;
 
-      const resolvedPath = resolve(source.value, context);
+      const resolvedPath = resolve(source.value, context, moduleSystem);
 
       if (resolvedPath === undefined) {
         context.report(
@@ -46,6 +46,7 @@ export default {
         );
       } else if (caseSensitive || caseSensitiveStrict) {
         const cacheSettings = ModuleCache.getSettings(context.settings);
+
         if (!fileExistsWithCaseSync(resolvedPath, cacheSettings, caseSensitiveStrict)) {
           context.report(
             source,

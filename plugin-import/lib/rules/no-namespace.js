@@ -5,8 +5,7 @@
 
 import minimatch from 'minimatch';
 import { getScope, getSourceCode } from 'eslint-module-utils/contextCompat';
-
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 /**
  * @param {MemberExpression} memberExpression
@@ -26,11 +25,13 @@ function getMemberPropertyName(memberExpression) {
 function getVariableNamesInScope(scopeManager, node) {
   let currentNode = node;
   let scope = scopeManager.acquire(currentNode);
+
   while (scope == null) {
     currentNode = currentNode.parent;
     scope = scopeManager.acquire(currentNode, true);
   }
-  return new Set(scope.variables.concat(scope.upper.variables).map((variable) => variable.name));
+
+  return new Set(scope.variables.concat(scope.upper.variables).map(variable => variable.name));
 }
 
 /**
@@ -41,8 +42,9 @@ function getVariableNamesInScope(scopeManager, node) {
  */
 function generateLocalNames(names, nameConflicts, namespaceName) {
   const localNames = {};
-  names.forEach((name) => {
+  names.forEach(name => {
     let localName;
+
     if (!nameConflicts[name].has(name)) {
       localName = name;
     } else if (!nameConflicts[name].has(`${namespaceName}_${name}`)) {
@@ -55,8 +57,10 @@ function generateLocalNames(names, nameConflicts, namespaceName) {
         }
       }
     }
+
     localNames[name] = localName;
   });
+
   return localNames;
 }
 
@@ -65,8 +69,8 @@ function generateLocalNames(names, nameConflicts, namespaceName) {
  * @returns {boolean} `true` if the namespace variable is more than just a glorified constant
  */
 function usesNamespaceAsObject(namespaceIdentifiers) {
-  return !namespaceIdentifiers.every((identifier) => {
-    const parent = identifier.parent;
+  return !namespaceIdentifiers.every(identifier => {
+    const { parent } = identifier;
 
     // `namespace.x` or `namespace['x']`
     return (
@@ -77,7 +81,7 @@ function usesNamespaceAsObject(namespaceIdentifiers) {
   });
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -106,35 +110,37 @@ export default {
 
     return {
       ImportNamespaceSpecifier(node) {
-        if (ignoreGlobs && ignoreGlobs.find((glob) => minimatch(node.parent.source.value, glob, { matchBase: true }))) {
+        if (ignoreGlobs && ignoreGlobs.find(glob => minimatch(node.parent.source.value, glob, { matchBase: true }))) {
           return;
         }
 
         const scopeVariables = getScope(context, node).variables;
-        const namespaceVariable = scopeVariables.find((variable) => variable.defs[0].node === node);
+        const namespaceVariable = scopeVariables.find(variable => variable.defs[0].node === node);
         const namespaceReferences = namespaceVariable.references;
-        const namespaceIdentifiers = namespaceReferences.map((reference) => reference.identifier);
+        const namespaceIdentifiers = namespaceReferences.map(reference => reference.identifier);
         const canFix = namespaceIdentifiers.length > 0 && !usesNamespaceAsObject(namespaceIdentifiers);
 
         context.report({
           node,
-          message: `Unexpected namespace import.`,
-          fix: canFix && ((fixer) => {
+          message: 'Unexpected namespace import.',
+          fix: canFix && (fixer => {
             const { scopeManager } = getSourceCode(context);
             const fixes = [];
 
             // Pass 1: Collect variable names that are already in scope for each reference we want
             // to transform, so that we can be sure that we choose non-conflicting import names
             const importNameConflicts = {};
-            namespaceIdentifiers.forEach((identifier) => {
-              const parent = identifier.parent;
+            namespaceIdentifiers.forEach(identifier => {
+              const { parent } = identifier;
+
               if (parent && parent.type === 'MemberExpression') {
                 const importName = getMemberPropertyName(parent);
                 const localConflicts = getVariableNamesInScope(scopeManager, parent);
+
                 if (!importNameConflicts[importName]) {
                   importNameConflicts[importName] = localConflicts;
                 } else {
-                  localConflicts.forEach((c) => importNameConflicts[importName].add(c));
+                  localConflicts.forEach(c => importNameConflicts[importName].add(c));
                 }
               }
             });
@@ -148,15 +154,15 @@ export default {
             );
 
             // Replace the ImportNamespaceSpecifier with a list of ImportSpecifiers
-            const namedImportSpecifiers = importNames.map((importName) => importName === importLocalNames[importName]
+            const namedImportSpecifiers = importNames.map(importName => importName === importLocalNames[importName]
               ? importName
-              : `${importName} as ${importLocalNames[importName]}`,
-            );
+              : `${importName} as ${importLocalNames[importName]}`);
             fixes.push(fixer.replaceText(node, `{ ${namedImportSpecifiers.join(', ')} }`));
 
             // Pass 2: Replace references to the namespace with references to the named imports
-            namespaceIdentifiers.forEach((identifier) => {
-              const parent = identifier.parent;
+            namespaceIdentifiers.forEach(identifier => {
+              const { parent } = identifier;
+
               if (parent && parent.type === 'MemberExpression') {
                 const importName = getMemberPropertyName(parent);
                 fixes.push(fixer.replaceText(parent, importLocalNames[importName]));

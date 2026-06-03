@@ -14,10 +14,10 @@ function makeSourceCode(text, ast) {
   if (SourceCode.length > 1) {
     // ESLint 3
     return new SourceCode(text, ast);
-  } else {
-    // ESLint 4, 5
-    return new SourceCode({ text, ast });
   }
+
+  // ESLint 4, 5
+  return new SourceCode({ text, ast });
 }
 
 export default class ImportExportVisitorBuilder {
@@ -41,7 +41,7 @@ export default class ImportExportVisitorBuilder {
     this.thunkFor = thunkFor;
     const docstyle = this.context.settings && this.context.settings['import/docstyle'] || ['jsdoc'];
     this.docStyleParsers = {};
-    docstyle.forEach((style) => {
+    docstyle.forEach(style => {
       this.docStyleParsers[style] = availableDocStyleParsers[style];
     });
   }
@@ -50,28 +50,66 @@ export default class ImportExportVisitorBuilder {
     return {
       ExportDefaultDeclaration() {
         const exportMeta = captureDoc(this.source, this.docStyleParsers, astNode);
+
         if (astNode.declaration.type === 'Identifier') {
           this.namespace.add(exportMeta, astNode.declaration);
+
+          // If the export has no JSDoc, look for it on the referenced declaration
+          if (!exportMeta.doc) {
+            const exportName = astNode.declaration.name;
+            const decl = this.ast.body.find(node => {
+              if (node.type === 'VariableDeclaration') {
+                return node.declarations.some(d => d.id.name === exportName);
+              }
+
+              return (node.type === 'FunctionDeclaration' || node.type === 'ClassDeclaration')
+&& node.id && node.id.name === exportName;
+            });
+
+            if (decl) {
+              if (decl.type === 'VariableDeclaration') {
+                const varDecl = decl.declarations.find(d => d.id.name === exportName);
+                const varMeta = captureDoc(this.source, this.docStyleParsers, varDecl, decl);
+
+                if (varMeta.doc) {
+                  exportMeta.doc = varMeta.doc;
+                }
+              } else {
+                const fnMeta = captureDoc(this.source, this.docStyleParsers, decl);
+
+                if (fnMeta.doc) {
+                  exportMeta.doc = fnMeta.doc;
+                }
+              }
+            }
+          }
         }
+
         this.exportMap.namespace.set('default', exportMeta);
       },
       ExportAllDeclaration() {
         const getter = captureDependency(astNode, astNode.exportKind === 'type', this.remotePathResolver, this.exportMap, this.context, this.thunkFor);
-        if (getter) { this.exportMap.dependencies.add(getter); }
+
         if (astNode.exported) {
+          // `export * as ns from './mod'` — named namespace, not a star-export
           processSpecifier(astNode, astNode.exported, this.exportMap, this.namespace);
+        } else if (getter) {
+          // `export * from './mod'` — star-export flattens into current module
+          this.exportMap.dependencies.add(getter);
         }
       },
       /** capture namespaces in case of later export */
       ImportDeclaration() {
         captureDependencyWithSpecifiers(astNode, this.remotePathResolver, this.exportMap, this.context, this.thunkFor);
-        const ns = astNode.specifiers.find((s) => s.type === 'ImportNamespaceSpecifier');
+        const ns = astNode.specifiers.find(s => s.type === 'ImportNamespaceSpecifier');
+
         if (ns) {
           this.namespace.rawSet(ns.local.name, astNode.source.value);
         }
       },
       ExportNamedDeclaration() {
         captureDependencyWithSpecifiers(astNode, this.remotePathResolver, this.exportMap, this.context, this.thunkFor);
+
         // capture declaration
         if (astNode.declaration != null) {
           switch (astNode.declaration.type) {
@@ -89,17 +127,18 @@ export default class ImportExportVisitorBuilder {
               this.exportMap.namespace.set(astNode.declaration.id.name, captureDoc(this.source, this.docStyleParsers, astNode));
               break;
             case 'VariableDeclaration':
-              astNode.declaration.declarations.forEach((d) => {
+              astNode.declaration.declarations.forEach(d => {
                 recursivePatternCapture(
                   d.id,
-                  (id) => this.exportMap.namespace.set(id.name, captureDoc(this.source, this.docStyleParsers, d, astNode)),
+                  id => this.exportMap.namespace.set(id.name, captureDoc(this.source, this.docStyleParsers, d, astNode)),
                 );
               });
               break;
             default:
           }
         }
-        astNode.specifiers.forEach((s) => processSpecifier(s, astNode, this.exportMap, this.namespace));
+
+        astNode.specifiers.forEach(s => processSpecifier(s, astNode, this.exportMap, this.namespace));
       },
       TSExportAssignment: () => this.typeScriptExport(astNode),
       ...this.isEsModuleInteropTrue && { TSNamespaceExportDeclaration: () => this.typeScriptExport(astNode) },
@@ -122,25 +161,29 @@ export default class ImportExportVisitorBuilder {
       'TSModuleDeclaration',
     ];
     const exportedDecls = this.ast.body.filter(({ type, id, declarations }) => includes(declTypes, type) && (
-      id && id.name === exportedName || declarations && declarations.find((d) => d.id.name === exportedName)
+      id && id.name === exportedName || declarations && declarations.find(d => d.id.name === exportedName)
     ));
+
     if (exportedDecls.length === 0) {
       // Export is not referencing any local declaration, must be re-exporting
       this.exportMap.namespace.set('default', captureDoc(this.source, this.docStyleParsers, astNode));
+
       return;
     }
+
     if (
       this.isEsModuleInteropTrue // esModuleInterop is on in tsconfig
-      && !this.exportMap.namespace.has('default') // and default isn't added already
+&& !this.exportMap.namespace.has('default') // and default isn't added already
     ) {
       this.exportMap.namespace.set('default', {}); // add default export
     }
-    exportedDecls.forEach((decl) => {
+
+    exportedDecls.forEach(decl => {
       if (decl.type === 'TSModuleDeclaration') {
         if (decl.body && decl.body.type === 'TSModuleDeclaration') {
           this.exportMap.namespace.set(decl.body.id.name, captureDoc(this.source, this.docStyleParsers, decl.body));
         } else if (decl.body && decl.body.body) {
-          decl.body.body.forEach((moduleBlockNode) => {
+          decl.body.body.forEach(moduleBlockNode => {
             // Export-assignment exports all members in the namespace,
             // explicitly exported or not.
             const namespaceDecl = moduleBlockNode.type === 'ExportNamedDeclaration'
@@ -150,15 +193,15 @@ export default class ImportExportVisitorBuilder {
             if (!namespaceDecl) {
               // TypeScript can check this for us; we needn't
             } else if (namespaceDecl.type === 'VariableDeclaration') {
-              namespaceDecl.declarations.forEach((d) => recursivePatternCapture(d.id, (id) => this.exportMap.namespace.set(
+              namespaceDecl.declarations.forEach(d => recursivePatternCapture(d.id, id => this.exportMap.namespace.set(
                 id.name,
                 captureDoc(this.source, this.docStyleParsers, decl, namespaceDecl, moduleBlockNode),
-              )),
-              );
+              )));
             } else {
               this.exportMap.namespace.set(
                 namespaceDecl.id.name,
-                captureDoc(this.source, this.docStyleParsers, moduleBlockNode));
+                captureDoc(this.source, this.docStyleParsers, moduleBlockNode),
+              );
             }
           });
         }

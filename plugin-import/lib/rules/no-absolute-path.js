@@ -1,11 +1,10 @@
 import path from 'path';
 import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
 import moduleVisitor, { makeOptionsSchema } from 'eslint-module-utils/moduleVisitor';
-
 import { isAbsolute } from '../core/importType';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -26,9 +25,11 @@ export default {
           fix(fixer) {
             // node.js and web imports work with posix style paths ("/")
             let relativePath = path.posix.relative(path.dirname(getPhysicalFilename(context)), source.value);
+
             if (!relativePath.startsWith('.')) {
               relativePath = `./${relativePath}`;
             }
+
             return fixer.replaceText(source, JSON.stringify(relativePath));
           },
         });
@@ -36,6 +37,7 @@ export default {
     }
 
     const options = { esmodule: true, commonjs: true, ...context.options[0] };
+
     return moduleVisitor(reportIfAbsolute, options);
   },
 };

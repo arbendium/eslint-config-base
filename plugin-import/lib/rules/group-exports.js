@@ -1,4 +1,4 @@
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 import values from 'object.values';
 import flat from 'array.prototype.flat';
 
@@ -10,19 +10,18 @@ const meta = {
     url: docsUrl('group-exports'),
   },
 };
-/* eslint-disable max-len */
+
 const errors = {
   ExportNamedDeclaration: 'Multiple named export declarations; consolidate all named exports into a single export declaration',
   AssignmentExpression: 'Multiple CommonJS exports; consolidate all exports into a single assignment to `module.exports`',
 };
-/* eslint-enable max-len */
 
 /**
  * Returns an array with names of the properties in the accessor chain for MemberExpression nodes
  *
  * Example:
  *
- * `export default {}` => ['module', 'exports']
+ * `module.exports = {}` => ['module', 'exports']
  * `module.exports.property = true` => ['module', 'exports', 'property']
  *
  * @param     {Node}    node    AST Node (MemberExpression)
@@ -64,6 +63,7 @@ function create(context) {
   return {
     ExportNamedDeclaration(node) {
       const target = node.exportKind === 'type' ? nodes.types : nodes.modules;
+
       if (!node.source) {
         target.set.add(node);
       } else if (Array.isArray(target.sources[node.source.value])) {
@@ -85,20 +85,20 @@ function create(context) {
       // (ie. module.exports.exported.prop = true is ignored)
       if (chain[0] === 'module' && chain[1] === 'exports' && chain.length <= 3) {
         nodes.commonjs.set.add(node);
+
         return;
       }
 
       // Assignments to exports (exports.* = *)
       if (chain[0] === 'exports' && chain.length === 2) {
         nodes.commonjs.set.add(node);
-        return;
       }
     },
 
     'Program:exit': function onExit() {
       // Report multiple `export` declarations (ES2015 modules)
       if (nodes.modules.set.size > 1) {
-        nodes.modules.set.forEach((node) => {
+        nodes.modules.set.forEach(node => {
           context.report({
             node,
             message: errors[node.type],
@@ -108,8 +108,8 @@ function create(context) {
 
       // Report multiple `aggregated exports` from the same module (ES2015 modules)
       flat(values(nodes.modules.sources)
-        .filter((nodesWithSource) => Array.isArray(nodesWithSource) && nodesWithSource.length > 1))
-        .forEach((node) => {
+        .filter(nodesWithSource => Array.isArray(nodesWithSource) && nodesWithSource.length > 1))
+        .forEach(node => {
           context.report({
             node,
             message: errors[node.type],
@@ -118,7 +118,7 @@ function create(context) {
 
       // Report multiple `export type` declarations (FLOW ES2015 modules)
       if (nodes.types.set.size > 1) {
-        nodes.types.set.forEach((node) => {
+        nodes.types.set.forEach(node => {
           context.report({
             node,
             message: errors[node.type],
@@ -128,8 +128,8 @@ function create(context) {
 
       // Report multiple `aggregated type exports` from the same module (FLOW ES2015 modules)
       flat(values(nodes.types.sources)
-        .filter((nodesWithSource) => Array.isArray(nodesWithSource) && nodesWithSource.length > 1))
-        .forEach((node) => {
+        .filter(nodesWithSource => Array.isArray(nodesWithSource) && nodesWithSource.length > 1))
+        .forEach(node => {
           context.report({
             node,
             message: errors[node.type],
@@ -138,7 +138,7 @@ function create(context) {
 
       // Report multiple `module.exports` assignments (CommonJS)
       if (nodes.commonjs.set.size > 1) {
-        nodes.commonjs.set.forEach((node) => {
+        nodes.commonjs.set.forEach(node => {
           context.report({
             node,
             message: errors[node.type],
@@ -149,7 +149,7 @@ function create(context) {
   };
 }
 
-export default {
+module.exports = {
   meta,
   create,
 };

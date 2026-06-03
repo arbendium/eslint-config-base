@@ -1,6 +1,6 @@
 import importType from '../core/importType';
 import moduleVisitor from 'eslint-module-utils/moduleVisitor';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 function reportIfMissing(context, node, allowed, name) {
   if (allowed.indexOf(name) === -1 && importType(name, context) === 'builtin') {
@@ -8,7 +8,7 @@ function reportIfMissing(context, node, allowed, name) {
   }
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {

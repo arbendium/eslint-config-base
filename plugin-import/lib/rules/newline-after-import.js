@@ -4,10 +4,8 @@
  */
 
 import { getPhysicalFilename, getScope } from 'eslint-module-utils/contextCompat';
-
 import isStaticRequire from '../core/staticRequire';
-import docsUrl from '../docsUrl.js';
-
+import docsUrl from '../docsUrl';
 import debug from 'debug';
 const log = debug('eslint-plugin-import:rules:newline-after-import');
 
@@ -22,10 +20,12 @@ function containsNodeOrEqual(outerNode, innerNode) {
 function getScopeBody(scope) {
   if (scope.block.type === 'SwitchStatement') {
     log('SwitchStatement scopes not supported');
+
     return null;
   }
 
   const { body } = scope.block;
+
   if (body && body.type === 'BlockStatement') {
     return body.body;
   }
@@ -34,7 +34,7 @@ function getScopeBody(scope) {
 }
 
 function findNodeIndexInScopeBody(body, nodeToFind) {
-  return body.findIndex((node) => containsNodeOrEqual(node, nodeToFind));
+  return body.findIndex(node => containsNodeOrEqual(node, nodeToFind));
 }
 
 function getLineDifference(node, nextNode) {
@@ -50,11 +50,10 @@ function isExportDefaultClass(node) {
 }
 
 function isExportNameClass(node) {
-
   return node.type === 'ExportNamedDeclaration' && node.declaration && node.declaration.type === 'ClassDeclaration';
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'layout',
     docs: {
@@ -106,7 +105,7 @@ export default {
         lineDifference < EXPECTED_LINE_DIFFERENCE
         || options.exactCount && lineDifference !== EXPECTED_LINE_DIFFERENCE
       ) {
-        let column = node.loc.start.column;
+        let { column } = node.loc.start;
 
         if (node.loc.start.line !== node.loc.end.line) {
           column = 0;
@@ -118,10 +117,12 @@ export default {
             column,
           },
           message: `Expected ${options.count} empty line${options.count > 1 ? 's' : ''} after ${type} statement not followed by another ${type}.`,
-          fix: options.exactCount && EXPECTED_LINE_DIFFERENCE < lineDifference ? undefined : (fixer) => fixer.insertTextAfter(
-            node,
-            '\n'.repeat(EXPECTED_LINE_DIFFERENCE - lineDifference),
-          ),
+          fix: options.exactCount && EXPECTED_LINE_DIFFERENCE < lineDifference
+            ? undefined
+            : fixer => fixer.insertTextAfter(
+              node,
+              '\n'.repeat(EXPECTED_LINE_DIFFERENCE - lineDifference),
+            ),
         });
       }
     }
@@ -131,7 +132,7 @@ export default {
       const EXPECTED_LINE_DIFFERENCE = options.count + 1;
 
       if (lineDifference < EXPECTED_LINE_DIFFERENCE) {
-        let column = node.loc.start.column;
+        let { column } = node.loc.start;
 
         if (node.loc.start.line !== node.loc.end.line) {
           column = 0;
@@ -143,10 +144,12 @@ export default {
             column,
           },
           message: `Expected ${options.count} empty line${options.count > 1 ? 's' : ''} after ${type} statement not followed by another ${type}.`,
-          fix: options.exactCount && EXPECTED_LINE_DIFFERENCE < lineDifference ? undefined : (fixer) => fixer.insertTextAfter(
-            node,
-            '\n'.repeat(EXPECTED_LINE_DIFFERENCE - lineDifference),
-          ),
+          fix: options.exactCount && EXPECTED_LINE_DIFFERENCE < lineDifference
+            ? undefined
+            : fixer => fixer.insertTextAfter(
+              node,
+              '\n'.repeat(EXPECTED_LINE_DIFFERENCE - lineDifference),
+            ),
         });
       }
     }
@@ -154,6 +157,7 @@ export default {
     function incrementLevel() {
       level++;
     }
+
     function decrementLevel() {
       level--;
     }
@@ -171,7 +175,7 @@ export default {
       let nextComment;
 
       if (typeof parent.comments !== 'undefined' && options.considerComments) {
-        nextComment = parent.comments.find((o) => o.loc.start.line >= endLine && o.loc.start.line <= endLine + options.count + 1);
+        nextComment = parent.comments.find(o => o.loc.start.line >= endLine && o.loc.start.line <= endLine + options.count + 1);
       }
 
       // skip "export import"s
@@ -218,13 +222,13 @@ export default {
             )
           ) {
             let nextComment;
+
             if (typeof statementWithRequireCall.parent.comments !== 'undefined' && options.considerComments) {
               const endLine = node.loc.end.line;
-              nextComment = statementWithRequireCall.parent.comments.find((o) => o.loc.start.line >= endLine && o.loc.start.line <= endLine + options.count + 1);
+              nextComment = statementWithRequireCall.parent.comments.find(o => o.loc.start.line >= endLine && o.loc.start.line <= endLine + options.count + 1);
             }
 
             if (nextComment && typeof nextComment !== 'undefined') {
-
               commentAfterImport(statementWithRequireCall, nextComment, 'require');
             } else {
               checkForNewLine(statementWithRequireCall, nextStatement, 'require');

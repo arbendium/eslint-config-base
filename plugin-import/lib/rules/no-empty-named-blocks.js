@@ -1,6 +1,5 @@
 import { getSourceCode } from 'eslint-module-utils/contextCompat';
-
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 function getEmptyBlockRange(tokens, index) {
   const token = tokens[index];
@@ -17,7 +16,7 @@ function getEmptyBlockRange(tokens, index) {
   return [start, end];
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -35,25 +34,24 @@ export default {
 
     return {
       ImportDeclaration(node) {
-        if (!node.specifiers.some((x) => x.type === 'ImportSpecifier')) {
+        if (!node.specifiers.some(x => x.type === 'ImportSpecifier')) {
           importsWithoutNameds.push(node);
         }
       },
 
       'Program:exit'(program) {
-        const importsTokens = importsWithoutNameds.map((node) => [node, program.tokens.filter((x) => x.range[0] >= node.range[0] && x.range[1] <= node.range[1])]);
+        const importsTokens = importsWithoutNameds.map(node => [node, program.tokens.filter(x => x.range[0] >= node.range[0] && x.range[1] <= node.range[1])]);
 
         importsTokens.forEach(([node, tokens]) => {
-          tokens.forEach((token) => {
+          tokens.forEach(token => {
             const idx = program.tokens.indexOf(token);
             const nextToken = program.tokens[idx + 1];
 
             if (nextToken && token.value === '{' && nextToken.value === '}') {
-              const hasOtherIdentifiers = tokens.some((token) => token.type === 'Identifier'
+              const hasOtherIdentifiers = tokens.some(token => token.type === 'Identifier'
                   && token.value !== 'from'
                   && token.value !== 'type'
-                  && token.value !== 'typeof',
-              );
+                  && token.value !== 'typeof');
 
               // If it has no other identifiers it's the only thing in the import, so we can either remove the import
               // completely or transform it in a side-effects only import
@@ -75,8 +73,8 @@ export default {
                         // Remove the empty block and the 'from' token, leaving the import only for its side
                         // effects, e.g. `import 'mod'`
                         const sourceCode = getSourceCode(context);
-                        const fromToken = program.tokens.find((t) => t.value === 'from');
-                        const importToken = program.tokens.find((t) => t.value === 'import');
+                        const fromToken = program.tokens.find(t => t.value === 'from');
+                        const importToken = program.tokens.find(t => t.value === 'import');
                         const hasSpaceAfterFrom = sourceCode.isSpaceBetween(fromToken, sourceCode.getTokenAfter(fromToken));
                         const hasSpaceAfterImport = sourceCode.isSpaceBetween(importToken, sourceCode.getTokenAfter(fromToken));
 

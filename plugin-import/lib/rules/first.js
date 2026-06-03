@@ -1,6 +1,5 @@
 import { getDeclaredVariables, getSourceCode } from 'eslint-module-utils/contextCompat';
-
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 function getImportValue(node) {
   return node.type === 'ImportDeclaration'
@@ -8,7 +7,7 @@ function getImportValue(node) {
     : node.moduleReference.expression.value;
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -34,10 +33,12 @@ export default {
 
     return {
       Program(n) {
-        const body = n.body;
+        const { body } = n;
+
         if (!body) {
           return;
         }
+
         const absoluteFirst = context.options[0] === 'absolute-first';
         const message = 'Import in body of module; reorder to top.';
         const sourceCode = getSourceCode(context);
@@ -49,7 +50,7 @@ export default {
         const errorInfos = [];
         let shouldSort = true;
         let lastSortNodesIndex = 0;
-        body.forEach(function (node, index) {
+        body.forEach((node, index) => {
           if (!anyExpressions && isPossibleDirective(node)) {
             return;
           }
@@ -67,10 +68,15 @@ export default {
                 });
               }
             }
+
             if (nonImportCount > 0) {
               for (const variable of getDeclaredVariables(context, node)) {
-                if (!shouldSort) { break; }
-                const references = variable.references;
+                if (!shouldSort) {
+                  break;
+                }
+
+                const { references } = variable;
+
                 if (references.length) {
                   for (const reference of references) {
                     if (reference.identifier.range[0] < node.range[1]) {
@@ -80,6 +86,7 @@ export default {
                   }
                 }
               }
+
               shouldSort && (lastSortNodesIndex = errorInfos.length);
               errorInfos.push({
                 node,
@@ -92,52 +99,57 @@ export default {
             nonImportCount++;
           }
         });
-        if (!errorInfos.length) { return; }
-        errorInfos.forEach(function (errorInfo, index) {
-          const node = errorInfo.node;
+
+        if (!errorInfos.length) {
+          return;
+        }
+
+        errorInfos.forEach((errorInfo, index) => {
+          const { node } = errorInfo;
           const infos = {
             node,
             message,
           };
+
           if (index < lastSortNodesIndex) {
             infos.fix = function (fixer) {
               return fixer.insertTextAfter(node, '');
             };
           } else if (index === lastSortNodesIndex) {
             const sortNodes = errorInfos.slice(0, lastSortNodesIndex + 1);
+
             infos.fix = function (fixer) {
-              const removeFixers = sortNodes.map(function (_errorInfo) {
-                return fixer.removeRange(_errorInfo.range);
-              });
+              const removeFixers = sortNodes.map(_errorInfo => fixer.removeRange(_errorInfo.range));
               const range = [0, removeFixers[removeFixers.length - 1].range[1]];
-              let insertSourceCode = sortNodes.map(function (_errorInfo) {
-                const nodeSourceCode = String.prototype.slice.apply(
-                  originSourceCode, _errorInfo.range,
-                );
+              let insertSourceCode = sortNodes.map(_errorInfo => {
+                const nodeSourceCode = String.prototype.slice.apply(originSourceCode, _errorInfo.range);
+
                 if ((/\S/).test(nodeSourceCode[0])) {
                   return `\n${nodeSourceCode}`;
                 }
+
                 return nodeSourceCode;
               }).join('');
               let insertFixer = null;
               let replaceSourceCode = '';
+
               if (!lastLegalImp) {
                 insertSourceCode = insertSourceCode.trim() + insertSourceCode.match(/^(\s+)/)[0];
               }
+
               insertFixer = lastLegalImp
                 ? fixer.insertTextAfter(lastLegalImp, insertSourceCode)
                 : fixer.insertTextBefore(body[0], insertSourceCode);
 
               const fixers = [insertFixer].concat(removeFixers);
               fixers.forEach((computedFixer, i) => {
-                replaceSourceCode += originSourceCode.slice(
-                  fixers[i - 1] ? fixers[i - 1].range[1] : 0, computedFixer.range[0],
-                ) + computedFixer.text;
+                replaceSourceCode += originSourceCode.slice(fixers[i - 1] ? fixers[i - 1].range[1] : 0, computedFixer.range[0]) + computedFixer.text;
               });
 
               return fixer.replaceTextRange(range, replaceSourceCode);
             };
           }
+
           context.report(infos);
         });
       },

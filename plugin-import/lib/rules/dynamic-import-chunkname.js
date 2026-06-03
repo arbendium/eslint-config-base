@@ -1,9 +1,8 @@
 import { getSourceCode } from 'eslint-module-utils/contextCompat';
 import vm from 'vm';
+import docsUrl from '../docsUrl';
 
-import docsUrl from '../docsUrl.js';
-
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -41,7 +40,7 @@ export default {
     const commentStyleRegex = /^( ((webpackChunkName: .+)|((webpackPrefetch|webpackPreload): (true|false|-?[0-9]+))|(webpackIgnore: (true|false))|((webpackInclude|webpackExclude): \/.*\/)|(webpackMode: ["'](lazy|lazy-once|eager|weak)["'])|(webpackExports: (['"]\w+['"]|\[(['"]\w+['"], *)+(['"]\w+['"]*)\]))),?)+ $/;
     const chunkSubstrFormat = `webpackChunkName: ["']${webpackChunknameFormat}["'],? `;
     const chunkSubstrRegex = new RegExp(chunkSubstrFormat);
-    const eagerModeFormat = `webpackMode: ["']eager["'],? `;
+    const eagerModeFormat = 'webpackMode: ["\']eager["\'],? ';
     const eagerModeRegex = new RegExp(eagerModeFormat);
 
     function run(node, arg) {
@@ -55,6 +54,7 @@ export default {
           node,
           message: 'dynamic imports require a leading comment with the webpack chunkname',
         });
+
         return;
       }
 
@@ -67,14 +67,16 @@ export default {
             node,
             message: 'dynamic imports require a /* foo */ style comment, not a // foo comment',
           });
+
           return;
         }
 
         if (!paddedCommentRegex.test(comment.value)) {
           context.report({
             node,
-            message: `dynamic imports require a block comment padded with spaces - /* foo */`,
+            message: 'dynamic imports require a block comment padded with spaces - /* foo */',
           });
+
           return;
         }
 
@@ -84,8 +86,9 @@ export default {
         } catch (error) {
           context.report({
             node,
-            message: `dynamic imports require a "webpack" comment with valid syntax`,
+            message: 'dynamic imports require a "webpack" comment with valid syntax',
           });
+
           return;
         }
 
@@ -93,8 +96,9 @@ export default {
           context.report({
             node,
             message:
-              `dynamic imports require a "webpack" comment with valid syntax`,
+              'dynamic imports require a "webpack" comment with valid syntax',
           });
+
           return;
         }
 
@@ -118,11 +122,12 @@ export default {
                 for (const comment of leadingComments) {
                   if (chunkSubstrRegex.test(comment.value)) {
                     const replacement = comment.value.replace(chunkSubstrRegex, '').trim().replace(/,$/, '');
+
                     if (replacement === '') {
                       return fixer.remove(comment);
-                    } else {
-                      return fixer.replaceText(comment, `/* ${replacement} */`);
                     }
+
+                    return fixer.replaceText(comment, `/* ${replacement} */`);
                   }
                 }
               },
@@ -133,11 +138,12 @@ export default {
                 for (const comment of leadingComments) {
                   if (eagerModeRegex.test(comment.value)) {
                     const replacement = comment.value.replace(eagerModeRegex, '').trim().replace(/,$/, '');
+
                     if (replacement === '') {
                       return fixer.remove(comment);
-                    } else {
-                      return fixer.replaceText(comment, `/* ${replacement} */`);
                     }
+
+                    return fixer.replaceText(comment, `/* ${replacement} */`);
                   }
                 }
               },

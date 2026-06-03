@@ -5,10 +5,9 @@ import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
 import pkgUp from 'eslint-module-utils/pkgUp';
 import resolve from 'eslint-module-utils/resolve';
 import moduleVisitor from 'eslint-module-utils/moduleVisitor';
-
 import importType from '../core/importType';
 import { getFilePackageName } from '../core/packagePath';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 const depFieldCache = new Map();
 
@@ -45,6 +44,7 @@ function extractDepFields(pkg) {
 function getPackageDepFields(packageJsonPath, throwAtRead) {
   if (!depFieldCache.has(packageJsonPath)) {
     const packageJson = readJSON(packageJsonPath, throwAtRead);
+
     if (packageJson) {
       const depFields = extractDepFields(packageJson);
       depFieldCache.set(packageJsonPath, depFields);
@@ -56,6 +56,7 @@ function getPackageDepFields(packageJsonPath, throwAtRead) {
 
 function getDependencies(context, packageDir) {
   let paths = [];
+
   try {
     const packageContent = {
       dependencies: {},
@@ -69,17 +70,18 @@ function getDependencies(context, packageDir) {
       if (!Array.isArray(packageDir)) {
         paths = [path.resolve(packageDir)];
       } else {
-        paths = packageDir.map((dir) => path.resolve(dir));
+        paths = packageDir.map(dir => path.resolve(dir));
       }
     }
 
     if (paths.length > 0) {
       // use rule config to find package.json
-      paths.forEach((dir) => {
+      paths.forEach(dir => {
         const packageJsonPath = path.join(dir, 'package.json');
         const _packageContent = getPackageDepFields(packageJsonPath, paths.length === 1);
+
         if (_packageContent) {
-          Object.keys(packageContent).forEach((depsKey) => {
+          Object.keys(packageContent).forEach(depsKey => {
             Object.assign(packageContent[depsKey], _packageContent[depsKey]);
           });
         }
@@ -115,6 +117,7 @@ function getDependencies(context, packageDir) {
         loc: { line: 0, column: 0 },
       });
     }
+
     if (e.name === 'JSONError' || e instanceof SyntaxError) {
       context.report({
         message: `The package.json file could not be parsed: ${e.message}`,
@@ -140,6 +143,7 @@ function optDepErrorMessage(packageName) {
 
 function getModuleOriginalName(name) {
   const [first, second] = name.split('/');
+
   return first.startsWith('@') ? `${first}/${second}` : first;
 }
 
@@ -177,7 +181,7 @@ function checkDependencyDeclaration(deps, packageName, declarationStatus) {
   }), newDeclarationStatus);
 }
 
-function reportIfMissing(context, deps, depsOptions, node, name) {
+function reportIfMissing(context, deps, depsOptions, node, name, moduleSystem) {
   // Do not report when importing types unless option is enabled
   if (
     !depsOptions.verifyTypeImports
@@ -185,7 +189,7 @@ function reportIfMissing(context, deps, depsOptions, node, name) {
       node.importKind === 'type'
       || node.importKind === 'typeof'
       || node.exportKind === 'type'
-      || Array.isArray(node.specifiers) && node.specifiers.length && node.specifiers.every((specifier) => specifier.importKind === 'type' || specifier.importKind === 'typeof')
+      || Array.isArray(node.specifiers) && node.specifiers.length && node.specifiers.every(specifier => specifier.importKind === 'type' || specifier.importKind === 'typeof')
     )
   ) {
     return;
@@ -200,8 +204,11 @@ function reportIfMissing(context, deps, depsOptions, node, name) {
     return;
   }
 
-  const resolved = resolve(name, context);
-  if (!resolved) { return; }
+  const resolved = resolve(name, context, moduleSystem);
+
+  if (!resolved) {
+    return;
+  }
 
   const importPackageName = getModuleOriginalName(name);
   let declarationStatus = checkDependencyDeclaration(deps, importPackageName);
@@ -219,6 +226,7 @@ function reportIfMissing(context, deps, depsOptions, node, name) {
   // test the real name from the resolved package.json
   // if not aliased imports (alias/react for example), importPackageName can be misinterpreted
   const realPackageName = getModuleRealName(resolved);
+
   if (realPackageName && realPackageName !== importPackageName) {
     declarationStatus = checkDependencyDeclaration(deps, realPackageName, declarationStatus);
 
@@ -235,11 +243,13 @@ function reportIfMissing(context, deps, depsOptions, node, name) {
 
   if (declarationStatus.isInDevDeps && !depsOptions.allowDevDeps) {
     context.report(node, devDepErrorMessage(realPackageName || importPackageName));
+
     return;
   }
 
   if (declarationStatus.isInOptDeps && !depsOptions.allowOptDeps) {
     context.report(node, optDepErrorMessage(realPackageName || importPackageName));
+
     return;
   }
 
@@ -251,13 +261,13 @@ function testConfig(config, filename) {
   if (typeof config === 'boolean' || typeof config === 'undefined') {
     return config;
   }
+
   // Array of globs.
-  return config.some((c) => minimatch(filename, c)
-    || minimatch(filename, path.join(process.cwd(), c)),
-  );
+  return config.some(c => minimatch(filename, c)
+    || minimatch(filename, path.join(process.cwd(), c)));
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'problem',
     docs: {
@@ -297,8 +307,8 @@ export default {
       verifyTypeImports: !!options.includeTypes,
     };
 
-    return moduleVisitor((source, node) => {
-      reportIfMissing(context, deps, depsOptions, node, source.value);
+    return moduleVisitor((source, node, moduleSystem) => {
+      reportIfMissing(context, deps, depsOptions, node, source.value, moduleSystem);
     }, { commonjs: true });
   },
 

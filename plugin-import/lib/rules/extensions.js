@@ -1,10 +1,9 @@
 import path from 'path';
-
 import minimatch from 'minimatch';
 import resolve from 'eslint-module-utils/resolve';
 import { isBuiltIn, isExternalModule, isScoped } from '../core/importType';
 import moduleVisitor from 'eslint-module-utils/moduleVisitor';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 const enumValues = { enum: ['always', 'ignorePackages', 'never'] };
 const patternProperties = {
@@ -41,24 +40,24 @@ const properties = {
 };
 
 function buildProperties(context) {
-
   const result = {
     defaultConfig: 'never',
     pattern: {},
     ignorePackages: false,
   };
 
-  context.options.forEach((obj) => {
-
+  context.options.forEach(obj => {
     // If this is a string, set defaultConfig to its value
     if (typeof obj === 'string') {
       result.defaultConfig = obj;
+
       return;
     }
 
     // If this is not the new structure, transfer all props to result.pattern
     if (obj.pattern === undefined && obj.ignorePackages === undefined && obj.checkTypeImports === undefined) {
       Object.assign(result.pattern, obj);
+
       return;
     }
 
@@ -89,7 +88,7 @@ function buildProperties(context) {
   return result;
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -136,7 +135,6 @@ export default {
   },
 
   create(context) {
-
     const props = buildProperties(context);
 
     function getModifier(extension) {
@@ -151,35 +149,47 @@ export default {
       return getModifier(extension) === 'never';
     }
 
-    function isResolvableWithoutExtension(file) {
+    function isResolvableWithoutExtension(file, moduleSystem) {
       const extension = path.extname(file);
       const fileWithoutExtension = file.slice(0, -extension.length);
-      const resolvedFileWithoutExtension = resolve(fileWithoutExtension, context);
+      const resolvedFileWithoutExtension = resolve(fileWithoutExtension, context, moduleSystem);
 
-      return resolvedFileWithoutExtension === resolve(file, context);
+      return resolvedFileWithoutExtension === resolve(file, context, moduleSystem);
     }
 
     function isExternalRootModule(file) {
-      if (file === '.' || file === '..') { return false; }
+      if (file === '.' || file === '..') {
+        return false;
+      }
+
       const slashCount = file.split('/').length - 1;
 
-      if (slashCount === 0)  { return true; }
-      if (isScoped(file) && slashCount <= 1) { return true; }
+      if (slashCount === 0) {
+        return true;
+      }
+
+      if (isScoped(file) && slashCount <= 1) {
+        return true;
+      }
+
       return false;
     }
 
     function computeOverrideAction(pathGroupOverrides, path) {
       for (let i = 0, l = pathGroupOverrides.length; i < l; i++) {
         const { pattern, patternOptions, action } = pathGroupOverrides[i];
+
         if (minimatch(path, pattern, patternOptions || { nocomment: true })) {
           return action;
         }
       }
     }
 
-    function checkFileExtension(source, node) {
+    function checkFileExtension(source, node, moduleSystem) {
       // bail if the declaration doesn't have a source, e.g. "export { foo };", or if it's only partially typed like in an editor
-      if (!source || !source.value) { return; }
+      if (!source || !source.value) {
+        return;
+      }
 
       const importPathWithQueryString = source.value;
 
@@ -194,15 +204,19 @@ export default {
       }
 
       // don't enforce anything on builtins
-      if (!overrideAction && isBuiltIn(importPathWithQueryString, context.settings)) { return; }
+      if (!overrideAction && isBuiltIn(importPathWithQueryString, context.settings)) {
+        return;
+      }
 
       const importPath = importPathWithQueryString.replace(/\?(.*)$/, '');
 
       // don't enforce in root external packages as they may have names with `.js`.
       // Like `import Decimal from decimal.js`)
-      if (!overrideAction && isExternalRootModule(importPath)) { return; }
+      if (!overrideAction && isExternalRootModule(importPath)) {
+        return;
+      }
 
-      const resolvedPath = resolve(importPath, context);
+      const resolvedPath = resolve(importPath, context, moduleSystem);
 
       // get extension from resolved path, if possible.
       // for unresolved, use source value.
@@ -211,15 +225,19 @@ export default {
       // determine if this is a module
       const isPackage = isExternalModule(
         importPath,
-        resolve(importPath, context),
+        resolve(importPath, context, moduleSystem),
         context,
       ) || isScoped(importPath);
 
       if (!extension || !importPath.endsWith(`.${extension}`)) {
         // ignore type-only imports and exports
-        if (!props.checkTypeImports && (node.importKind === 'type' || node.exportKind === 'type')) { return; }
+        if (!props.checkTypeImports && (node.importKind === 'type' || node.exportKind === 'type')) {
+          return;
+        }
+
         const extensionRequired = isUseOfExtensionRequired(extension, !overrideAction && isPackage);
         const extensionForbidden = isUseOfExtensionForbidden(extension);
+
         if (extensionRequired && !extensionForbidden) {
           context.report({
             node: source,
@@ -228,7 +246,7 @@ export default {
           });
         }
       } else if (extension) {
-        if (isUseOfExtensionForbidden(extension) && isResolvableWithoutExtension(importPath)) {
+        if (isUseOfExtensionForbidden(extension) && isResolvableWithoutExtension(importPath, moduleSystem)) {
           context.report({
             node: source,
             message: `Unexpected use of file extension "${extension}" for "${importPathWithQueryString}"`,

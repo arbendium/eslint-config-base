@@ -1,13 +1,7 @@
 import ExportMapBuilder from '../exportMap/builder';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
-/**
- * @import { AST, Rule, SourceCode } from 'eslint'
- * @import { ExportNamedDeclaration, ImportDeclaration } from 'estree'
- */
-
-/** @type {Rule.RuleModule} */
-export default {
+module.exports = {
   meta: {
     type: 'problem',
     docs: {
@@ -19,18 +13,20 @@ export default {
   },
 
   create(context) {
-    /**
-     * @param {'ExportDefaultSpecifier' | 'ImportDefaultSpecifier'} specifierType
-     * @param {ExportNamedDeclaration | ImportDeclaration} node
-     */
     function checkDefault(specifierType, node) {
       const defaultSpecifier = node.specifiers.find(
-        (specifier) => specifier.type === specifierType,
+        specifier => specifier.type === specifierType,
       );
 
-      if (!defaultSpecifier) { return; }
+      if (!defaultSpecifier) {
+        return;
+      }
+
       const imports = ExportMapBuilder.get(node.source.value, context);
-      if (imports == null) { return; }
+
+      if (imports == null) {
+        return;
+      }
 
       if (imports.errors.length) {
         imports.reportErrors(context, node);

@@ -2,22 +2,30 @@ import declaredScope from 'eslint-module-utils/declaredScope';
 import ExportMapBuilder from '../exportMap/builder';
 import ExportMap from '../exportMap';
 import importDeclaration from '../importDeclaration';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 function processBodyStatement(context, namespaces, declaration) {
-  if (declaration.type !== 'ImportDeclaration') { return; }
-
-  if (declaration.specifiers.length === 0) { return; }
-
-  const imports = ExportMapBuilder.get(declaration.source.value, context);
-  if (imports == null) { return null; }
-
-  if (imports.errors.length > 0) {
-    imports.reportErrors(context, declaration);
+  if (declaration.type !== 'ImportDeclaration') {
     return;
   }
 
-  declaration.specifiers.forEach((specifier) => {
+  if (declaration.specifiers.length === 0) {
+    return;
+  }
+
+  const imports = ExportMapBuilder.get(declaration.source.value, context);
+
+  if (imports == null) {
+    return null;
+  }
+
+  if (imports.errors.length > 0) {
+    imports.reportErrors(context, declaration);
+
+    return;
+  }
+
+  declaration.specifiers.forEach(specifier => {
     switch (specifier.type) {
       case 'ImportNamespaceSpecifier':
         if (!imports.size) {
@@ -26,24 +34,31 @@ function processBodyStatement(context, namespaces, declaration) {
             `No exported names found in module '${declaration.source.value}'.`,
           );
         }
+
         namespaces.set(specifier.local.name, imports);
         break;
       case 'ImportDefaultSpecifier':
+
       case 'ImportSpecifier': {
         const meta = imports.get(
         // default to 'default' for default https://i.imgur.com/nj6qAWy.jpg
           specifier.imported ? specifier.imported.name || specifier.imported.value : 'default',
         );
-        if (!meta || !meta.namespace) { break; }
+
+        if (!meta || !meta.namespace) {
+          break;
+        }
+
         namespaces.set(specifier.local.name, meta.namespace);
         break;
       }
+
       default:
     }
   });
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'problem',
     docs: {
@@ -82,7 +97,7 @@ export default {
     return {
       // pick up all imports at body entry time, to properly respect hoisting
       Program({ body }) {
-        body.forEach((x) => { processBodyStatement(context, namespaces, x); });
+        body.forEach(x => { processBodyStatement(context, namespaces, x); });
       },
 
       // same as above, but does not add names to local map
@@ -90,10 +105,14 @@ export default {
         const declaration = importDeclaration(context, namespace);
 
         const imports = ExportMapBuilder.get(declaration.source.value, context);
-        if (imports == null) { return null; }
+
+        if (imports == null) {
+          return null;
+        }
 
         if (imports.errors.length) {
           imports.reportErrors(context, declaration);
+
           return;
         }
 
@@ -108,9 +127,17 @@ export default {
       // todo: check for possible redefinition
 
       MemberExpression(dereference) {
-        if (dereference.object.type !== 'Identifier') { return; }
-        if (!namespaces.has(dereference.object.name)) { return; }
-        if (declaredScope(context, dereference.object.name, dereference) !== 'module') { return; }
+        if (dereference.object.type !== 'Identifier') {
+          return;
+        }
+
+        if (!namespaces.has(dereference.object.name)) {
+          return;
+        }
+
+        if (declaredScope(context, dereference.object.name, dereference) !== 'module') {
+          return;
+        }
 
         if (dereference.parent.type === 'AssignmentExpression' && dereference.parent.left === dereference) {
           context.report(
@@ -122,6 +149,7 @@ export default {
         // go deep
         let namespace = namespaces.get(dereference.object.name);
         const namepath = [dereference.object.name];
+
         // while property is namespace and parent is member expression, keep validating
         while (namespace instanceof ExportMap && dereference.type === 'MemberExpression') {
           if (dereference.computed) {
@@ -131,6 +159,7 @@ export default {
                 `Unable to validate computed reference to imported namespace '${dereference.object.name}'.`,
               );
             }
+
             return;
           }
 
@@ -143,7 +172,10 @@ export default {
           }
 
           const exported = namespace.get(dereference.property.name);
-          if (exported == null) { return; }
+
+          if (exported == null) {
+            return;
+          }
 
           // stash and pop
           namepath.push(dereference.property.name);
@@ -153,18 +185,32 @@ export default {
       },
 
       VariableDeclarator({ id, init }) {
-        if (init == null) { return; }
-        if (init.type !== 'Identifier') { return; }
-        if (!namespaces.has(init.name)) { return; }
+        if (init == null) {
+          return;
+        }
+
+        if (init.type !== 'Identifier') {
+          return;
+        }
+
+        if (!namespaces.has(init.name)) {
+          return;
+        }
 
         // check for redefinition in intermediate scopes
-        if (declaredScope(context, init.name, init) !== 'module') { return; }
+        if (declaredScope(context, init.name, init) !== 'module') {
+          return;
+        }
 
         // DFS traverse child namespaces
         function testKey(pattern, namespace, path = [init.name]) {
-          if (!(namespace instanceof ExportMap)) { return; }
+          if (!(namespace instanceof ExportMap)) {
+            return;
+          }
 
-          if (pattern.type !== 'ObjectPattern') { return; }
+          if (pattern.type !== 'ObjectPattern') {
+            return;
+          }
 
           for (const property of pattern.properties) {
             if (
@@ -193,10 +239,12 @@ export default {
 
             path.push(property.key.name);
             const dependencyExportMap = namespace.get(property.key.name);
+
             // could be null when ignored or ambiguous
             if (dependencyExportMap !== null) {
               testKey(property.value, dependencyExportMap.namespace, path);
             }
+
             path.pop();
           }
         }
@@ -205,8 +253,12 @@ export default {
       },
 
       JSXMemberExpression({ object, property }) {
-        if (!namespaces.has(object.name)) { return; }
+        if (!namespaces.has(object.name)) {
+          return;
+        }
+
         const namespace = namespaces.get(object.name);
+
         if (!namespace.has(property.name)) {
           context.report({
             node: property,

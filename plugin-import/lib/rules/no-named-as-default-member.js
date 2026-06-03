@@ -6,13 +6,13 @@
  */
 import ExportMapBuilder from '../exportMap/builder';
 import importDeclaration from '../importDeclaration';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 //------------------------------------------------------------------------------
 // Rule Definition
 //------------------------------------------------------------------------------
 
-export default {
+module.exports = {
   meta: {
     type: 'suggestion',
     docs: {
@@ -37,10 +37,14 @@ export default {
       ImportDefaultSpecifier(node) {
         const declaration = importDeclaration(context, node);
         const exportMap = ExportMapBuilder.get(declaration.source.value, context);
-        if (exportMap == null) { return; }
+
+        if (exportMap == null) {
+          return;
+        }
 
         if (exportMap.errors.length) {
           exportMap.reportErrors(context, declaration);
+
           return;
         }
 
@@ -60,11 +64,18 @@ export default {
         const isDestructure = node.id.type === 'ObjectPattern'
           && node.init != null
           && node.init.type === 'Identifier';
-        if (!isDestructure) { return; }
+
+        if (!isDestructure) {
+          return;
+        }
 
         const objectName = node.init.name;
+
         for (const { key } of node.id.properties) {
-          if (key == null) { continue; }  // true for rest properties
+          if (key == null) {
+            continue;
+          } // true for rest properties
+
           storePropertyLookup(objectName, key.name, key);
         }
       },
@@ -72,12 +83,20 @@ export default {
       'Program:exit'() {
         allPropertyLookups.forEach((lookups, objectName) => {
           const fileImport = fileImports.get(objectName);
-          if (fileImport == null) { return; }
+
+          if (fileImport == null) {
+            return;
+          }
 
           for (const { propName, node } of lookups) {
             // the default import can have a "default" property
-            if (propName === 'default') { continue; }
-            if (!fileImport.exportMap.namespace.has(propName)) { continue; }
+            if (propName === 'default') {
+              continue;
+            }
+
+            if (!fileImport.exportMap.namespace.has(propName)) {
+              continue;
+            }
 
             context.report({
               node,

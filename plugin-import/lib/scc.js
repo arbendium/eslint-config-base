@@ -13,7 +13,11 @@ export default class StronglyConnectedComponentsBuilder {
 
   static get(source, context) {
     const path = resolve(source, context);
-    if (path == null) { return null; }
+
+    if (path == null) {
+      return null;
+    }
+
     return StronglyConnectedComponentsBuilder.for(childContext(path, context));
   }
 
@@ -24,12 +28,15 @@ export default class StronglyConnectedComponentsBuilder {
       parserPath: context.parserPath,
     }).digest('hex');
     const cacheKey = context.path + settingsHash;
+
     if (cache.has(cacheKey)) {
       return cache.get(cacheKey);
     }
+
     const scc = StronglyConnectedComponentsBuilder.calculate(context);
     const visitedFiles = Object.keys(scc);
-    visitedFiles.forEach((filePath) => cache.set(filePath + settingsHash, scc));
+    visitedFiles.forEach(filePath => cache.set(filePath + settingsHash, scc));
+
     return scc;
   }
 
@@ -37,24 +44,30 @@ export default class StronglyConnectedComponentsBuilder {
     const exportMap = ExportMapBuilder.for(context);
     const adjacencyList = this.exportMapToAdjacencyList(exportMap);
     const calculatedScc = calculateScc(adjacencyList);
+
     return StronglyConnectedComponentsBuilder.calculatedSccToPlainObject(calculatedScc);
   }
 
   /** @returns {Map<string, Set<string>>} for each dep, what are its direct deps */
   static exportMapToAdjacencyList(initialExportMap) {
     const adjacencyList = new Map();
+
     // BFS
     function visitNode(exportMap) {
       if (!exportMap) {
         return;
       }
+
       exportMap.imports.forEach((v, importedPath) => {
         const from = exportMap.path;
         const to = importedPath;
 
         // Ignore type-only imports, because we care only about SCCs of value imports
         const toTraverse = [...v.declarations].filter(({ isOnlyImportingTypes }) => !isOnlyImportingTypes);
-        if (toTraverse.length === 0) { return; }
+
+        if (toTraverse.length === 0) {
+          return;
+        }
 
         if (!adjacencyList.has(from)) {
           adjacencyList.set(from, new Set());
@@ -63,19 +76,22 @@ export default class StronglyConnectedComponentsBuilder {
         if (adjacencyList.get(from).has(to)) {
           return; // prevent endless loop
         }
+
         adjacencyList.get(from).add(to);
         visitNode(v.getter());
       });
     }
+
     visitNode(initialExportMap);
     // Fill gaps
-    adjacencyList.forEach((values) => {
-      values.forEach((value) => {
+    adjacencyList.forEach(values => {
+      values.forEach(value => {
         if (!adjacencyList.has(value)) {
           adjacencyList.set(value, new Set());
         }
       });
     });
+
     return adjacencyList;
   }
 
@@ -83,10 +99,11 @@ export default class StronglyConnectedComponentsBuilder {
   static calculatedSccToPlainObject(sccs) {
     const obj = {};
     sccs.forEach((scc, index) => {
-      scc.forEach((node) => {
+      scc.forEach(node => {
         obj[node] = index;
       });
     });
+
     return obj;
   }
 }

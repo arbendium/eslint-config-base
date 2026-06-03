@@ -7,9 +7,8 @@ export function captureDoc(source, docStyleParsers, ...nodes) {
   const metadata = {};
 
   // 'some' short-circuits on first 'true'
-  nodes.some((n) => {
+  nodes.some(n => {
     try {
-
       let leadingComments;
 
       // n.leadingComments is legacy `attachComments` behavior
@@ -19,10 +18,13 @@ export function captureDoc(source, docStyleParsers, ...nodes) {
         leadingComments = source.getCommentsBefore(n);
       }
 
-      if (!leadingComments || leadingComments.length === 0) { return false; }
+      if (!leadingComments || leadingComments.length === 0) {
+        return false;
+      }
 
       for (const name in docStyleParsers) {
         const doc = docStyleParsers[name](leadingComments);
+
         if (doc) {
           metadata.doc = doc;
         }
@@ -46,9 +48,12 @@ function captureJsDoc(comments) {
   let doc;
 
   // capture XSDoc
-  comments.forEach((comment) => {
+  comments.forEach(comment => {
     // skip non-block comments
-    if (comment.type !== 'Block') { return; }
+    if (comment.type !== 'Block') {
+      return;
+    }
+
     try {
       doc = doctrine.parse(comment.value, { unwrap: true });
     } catch (err) {
@@ -65,14 +70,20 @@ function captureJsDoc(comments) {
 function captureTomDoc(comments) {
   // collect lines up to first paragraph break
   const lines = [];
+
   for (let i = 0; i < comments.length; i++) {
     const comment = comments[i];
-    if (comment.value.match(/^\s*$/)) { break; }
+
+    if (comment.value.match(/^\s*$/)) {
+      break;
+    }
+
     lines.push(comment.value.trim());
   }
 
   // return doctrine-like object
   const statusMatch = lines.join(' ').match(/^(Public|Internal|Deprecated):\s*(.+)/);
+
   if (statusMatch) {
     return {
       description: statusMatch[2],

@@ -6,14 +6,13 @@
 import { getPhysicalFilename } from 'eslint-module-utils/contextCompat';
 import resolve from 'eslint-module-utils/resolve';
 import moduleVisitor from 'eslint-module-utils/moduleVisitor';
+import docsUrl from '../docsUrl';
 
-import docsUrl from '../docsUrl.js';
-
-function isImportingSelf(context, node, requireName) {
+function isImportingSelf(context, node, requireName, moduleSystem) {
   const filePath = getPhysicalFilename(context);
 
   // If the input is from stdin, this test can't fail
-  if (filePath !== '<text>' && filePath === resolve(requireName, context)) {
+  if (filePath !== '<text>' && filePath === resolve(requireName, context, moduleSystem)) {
     context.report({
       node,
       message: 'Module imports itself.',
@@ -21,7 +20,7 @@ function isImportingSelf(context, node, requireName) {
   }
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'problem',
     docs: {
@@ -34,8 +33,8 @@ export default {
     schema: [],
   },
   create(context) {
-    return moduleVisitor((source, node) => {
-      isImportingSelf(context, node, source.value);
+    return moduleVisitor((source, node, moduleSystem) => {
+      isImportingSelf(context, node, source.value, moduleSystem);
     }, { commonjs: true });
   },
 };

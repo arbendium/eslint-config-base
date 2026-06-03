@@ -4,25 +4,26 @@ import resolve from 'eslint-module-utils/resolve';
 import moduleVisitor from 'eslint-module-utils/moduleVisitor';
 import isGlob from 'is-glob';
 import { Minimatch } from 'minimatch';
-
 import importType from '../core/importType';
-import docsUrl from '../docsUrl.js';
+import docsUrl from '../docsUrl';
 
 const containsPath = (filepath, target) => {
   const relative = path.relative(target, filepath);
+
   return relative === '' || !relative.startsWith('..');
 };
 
 function isMatchingTargetPath(filename, targetPath) {
   if (isGlob(targetPath)) {
     const mm = new Minimatch(targetPath);
+
     return mm.match(filename);
   }
 
   return containsPath(filename, targetPath);
 }
 
-export default {
+module.exports = {
   meta: {
     type: 'problem',
     docs: {
@@ -88,9 +89,9 @@ export default {
     const basePath = options.basePath || process.cwd();
     const currentFilename = getPhysicalFilename(context);
     const matchingZones = restrictedPaths.filter(
-      (zone) => [].concat(zone.target)
-        .map((target) => path.resolve(basePath, target))
-        .some((targetPath) => isMatchingTargetPath(currentFilename, targetPath)),
+      zone => [].concat(zone.target)
+        .map(target => path.resolve(basePath, target))
+        .some(targetPath => isMatchingTargetPath(currentFilename, targetPath)),
     );
 
     function isValidExceptionPath(absoluteFromPath, absoluteExceptionPath) {
@@ -100,7 +101,7 @@ export default {
     }
 
     function areBothGlobPatternAndAbsolutePath(areGlobPatterns) {
-      return areGlobPatterns.some((isGlob) => isGlob) && areGlobPatterns.some((isGlob) => !isGlob);
+      return areGlobPatterns.some(isGlob => isGlob) && areGlobPatterns.some(isGlob => !isGlob);
     }
 
     function reportInvalidExceptionPath(node) {
@@ -136,12 +137,12 @@ export default {
       let isPathException;
 
       const mm = new Minimatch(absoluteFrom);
-      const isPathRestricted = (absoluteImportPath) => mm.match(absoluteImportPath);
+      const isPathRestricted = absoluteImportPath => mm.match(absoluteImportPath);
       const hasValidExceptions = zoneExcept.every(isGlob);
 
       if (hasValidExceptions) {
-        const exceptionsMm = zoneExcept.map((except) => new Minimatch(except));
-        isPathException = (absoluteImportPath) => exceptionsMm.some((mm) => mm.match(absoluteImportPath));
+        const exceptionsMm = zoneExcept.map(except => new Minimatch(except));
+        isPathException = absoluteImportPath => exceptionsMm.some(mm => mm.match(absoluteImportPath));
       }
 
       const reportInvalidException = reportInvalidExceptionGlob;
@@ -157,16 +158,16 @@ export default {
     function computeAbsolutePathValidator(absoluteFrom, zoneExcept) {
       let isPathException;
 
-      const isPathRestricted = (absoluteImportPath) => containsPath(absoluteImportPath, absoluteFrom);
+      const isPathRestricted = absoluteImportPath => containsPath(absoluteImportPath, absoluteFrom);
 
       const absoluteExceptionPaths = zoneExcept
-        .map((exceptionPath) => path.resolve(absoluteFrom, exceptionPath));
+        .map(exceptionPath => path.resolve(absoluteFrom, exceptionPath));
       const hasValidExceptions = absoluteExceptionPaths
-        .every((absoluteExceptionPath) => isValidExceptionPath(absoluteFrom, absoluteExceptionPath));
+        .every(absoluteExceptionPath => isValidExceptionPath(absoluteFrom, absoluteExceptionPath));
 
       if (hasValidExceptions) {
-        isPathException = (absoluteImportPath) => absoluteExceptionPaths.some(
-          (absoluteExceptionPath) => containsPath(absoluteImportPath, absoluteExceptionPath),
+        isPathException = absoluteImportPath => absoluteExceptionPaths.some(
+          absoluteExceptionPath => containsPath(absoluteImportPath, absoluteExceptionPath),
         );
       }
 
@@ -181,7 +182,7 @@ export default {
     }
 
     function reportInvalidExceptions(validators, node) {
-      validators.forEach((validator) => validator.reportInvalidException(node));
+      validators.forEach(validator => validator.reportInvalidException(node));
     }
 
     function reportImportsInRestrictedZone(validators, node, importPath, customMessage) {
@@ -202,22 +203,23 @@ export default {
         return [computeMixedGlobAndAbsolutePathValidator()];
       }
 
-      const isGlobPattern = areGlobPatterns.every((isGlob) => isGlob);
+      const isGlobPattern = areGlobPatterns.every(isGlob => isGlob);
 
-      return allZoneFrom.map((singleZoneFrom) => {
+      return allZoneFrom.map(singleZoneFrom => {
         const absoluteFrom = path.resolve(basePath, singleZoneFrom);
 
         if (isGlobPattern) {
           return computeGlobPatternPathValidator(absoluteFrom, zoneExcept);
         }
+
         return computeAbsolutePathValidator(absoluteFrom, zoneExcept);
       });
     };
 
     const validators = [];
 
-    function checkForRestrictedImportPath(importPath, node) {
-      const absoluteImportPath = resolve(importPath, context);
+    function checkForRestrictedImportPath(importPath, node, moduleSystem) {
+      const absoluteImportPath = resolve(importPath, context, moduleSystem);
 
       if (!absoluteImportPath) {
         return;
@@ -228,19 +230,19 @@ export default {
           validators[index] = makePathValidators(zone.from, zone.except);
         }
 
-        const applicableValidatorsForImportPath = validators[index].filter((validator) => validator.isPathRestricted(absoluteImportPath));
+        const applicableValidatorsForImportPath = validators[index].filter(validator => validator.isPathRestricted(absoluteImportPath));
 
-        const validatorsWithInvalidExceptions = applicableValidatorsForImportPath.filter((validator) => !validator.hasValidExceptions);
+        const validatorsWithInvalidExceptions = applicableValidatorsForImportPath.filter(validator => !validator.hasValidExceptions);
         reportInvalidExceptions(validatorsWithInvalidExceptions, node);
 
         const applicableValidatorsForImportPathExcludingExceptions = applicableValidatorsForImportPath
-          .filter((validator) => validator.hasValidExceptions && !validator.isPathException(absoluteImportPath));
+          .filter(validator => validator.hasValidExceptions && !validator.isPathException(absoluteImportPath));
         reportImportsInRestrictedZone(applicableValidatorsForImportPathExcludingExceptions, node, importPath, zone.message);
       });
     }
 
-    return moduleVisitor((source) => {
-      checkForRestrictedImportPath(source.value, source);
+    return moduleVisitor((source, node, moduleSystem) => {
+      checkForRestrictedImportPath(source.value, source, moduleSystem);
     }, { commonjs: true });
   },
 };
