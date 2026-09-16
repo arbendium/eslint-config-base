@@ -1,10 +1,9 @@
 {
-  "compilerOptions": {
-    "checkJs": true,
-    "exactOptionalPropertyTypes": true,
-    "module": "preserve",
-    "noEmit": true,
-    "strict": true,
-    "target": "ESNext"
-  }
+	"compilerOptions": {
+		"checkJs": true,
+		"exactOptionalPropertyTypes": true,
+		"module": "nodenext",
+		"strict": true,
+		"noEmit": true,
+	},
 }
